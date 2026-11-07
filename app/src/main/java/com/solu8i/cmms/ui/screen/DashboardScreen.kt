@@ -1,6 +1,9 @@
 package com.solu8i.cmms.ui.screen
 
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Warning
@@ -18,8 +21,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -50,6 +57,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.solu8i.cmms.data.model.RecentWorkOrder
+import com.solu8i.cmms.ui.navigation.Routes
+import com.solu8i.cmms.ui.navigation.drawerItems
 import com.solu8i.cmms.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,7 +68,10 @@ fun DashboardScreen(
     loginViewModel: com.solu8i.cmms.ui.viewmodel.LoginViewModel,
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     onWorkOrderClick: (Int) -> Unit = {},
-    onMenuClick: () -> Unit = {}
+    onMenuClick: () -> Unit = {},
+    unreadNotificationCount: Int = 0,
+    onNotificationClick: () -> Unit = {},
+    onNavigate: (String) -> Unit = {}
 ) {
     val dashboardData by viewModel.dashboardData.collectAsState()
     val isLoading by viewModel.isDashboardLoading.collectAsState()
@@ -87,6 +99,28 @@ fun DashboardScreen(
                         text = "Dashboard",
                         fontWeight = FontWeight.Bold
                     )
+                },
+                actions = {
+                    BadgedBox(
+                        badge = {
+                            if (unreadNotificationCount > 0) {
+                                Badge(containerColor = Color(0xFFDC2626), contentColor = Color.White) {
+                                    Text(
+                                        text = if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString(),
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+                        }
+                    ) {
+                        IconButton(onClick = onNotificationClick) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Notifikasi",
+                                tint = Color.White
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF015E4E),
@@ -168,6 +202,19 @@ fun DashboardScreen(
                     }
                 }
 
+                item {
+                    Text(
+                        text = "Menu",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF015E4E)
+                    )
+                }
+
+                item {
+                    MenuGrid(onNavigate = onNavigate)
+                }
+
                 val todayWorkOrders = data.todayWorkOrders.orEmpty()
 
                 if (todayWorkOrders.isNotEmpty()) {
@@ -219,6 +266,55 @@ fun DashboardScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun MenuGrid(onNavigate: (String) -> Unit) {
+    val menus = drawerItems.filter { it.route != Routes.DASHBOARD }
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(4),
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        userScrollEnabled = false
+    ) {
+        items(menus.size) { index ->
+            val menu = menus[index]
+
+            Column(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White)
+                    .clickable { onNavigate(menu.route) }
+                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(Color(0xFF015E4E).copy(alpha = 0.10f), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = menu.icon,
+                        contentDescription = menu.label,
+                        tint = Color(0xFF015E4E),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = menu.label,
+                    fontSize = 11.sp,
+                    color = Color(0xFF374151),
+                    maxLines = 1
+                )
             }
         }
     }

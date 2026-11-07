@@ -14,6 +14,9 @@ import com.solu8i.cmms.data.model.MaintenanceRequestDetailResponse
 import com.solu8i.cmms.data.model.MaintenanceRequestListResponse
 import com.solu8i.cmms.data.model.MeterLogCreateResponse
 import com.solu8i.cmms.data.model.MeterLogListResponse
+import com.solu8i.cmms.data.model.NotificationListResponse
+import com.solu8i.cmms.data.model.NotificationReadResponse
+import com.solu8i.cmms.data.model.UnreadCountResponse
 import com.solu8i.cmms.data.model.WorkOrderActivityResponse
 import com.solu8i.cmms.data.model.WorkOrderDetailResponse
 import com.solu8i.cmms.data.model.WorkOrderListResponse
@@ -126,6 +129,24 @@ interface ApiService {
     suspend fun getDocumentDetail(
         @Path("id") id: Int
     ): Response<DocumentDetailResponse>
+
+    @GET("notifications")
+    suspend fun getNotifications(
+        @Query("unread") unread: Boolean? = null,
+        @Query("per_page") perPage: Int = 30,
+        @Query("page") page: Int = 1
+    ): Response<NotificationListResponse>
+
+    @GET("notifications/unread-count")
+    suspend fun getUnreadNotificationCount(): Response<UnreadCountResponse>
+
+    @POST("notifications/{id}/read")
+    suspend fun markNotificationRead(
+        @Path("id") id: String
+    ): Response<NotificationReadResponse>
+
+    @POST("notifications/read-all")
+    suspend fun markAllNotificationsRead(): Response<NotificationReadResponse>
 
     @GET("maintenance-calendar")
     suspend fun getMaintenanceCalendar(

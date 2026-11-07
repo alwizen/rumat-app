@@ -12,6 +12,7 @@ object Routes {
     const val DOCUMENT = "document"
     const val MAINTENANCE_REQUEST = "maintenance-request"
     const val MY_TAB = "my-tab"
+    const val NOTIFICATION = "notification"
     const val WORK_ORDER_DETAIL = "work-order/{workOrderId}"
     const val MAINTENANCE_REQUEST_DETAIL = "maintenance-request/{requestId}"
     const val MAINTENANCE_REQUEST_CREATE = "maintenance-request-create"

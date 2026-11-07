@@ -21,13 +21,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.solu8i.cmms.ui.navigation.AppDrawerContent
+import com.solu8i.cmms.ui.navigation.BottomNavBar
 import com.solu8i.cmms.ui.navigation.Routes
+import com.solu8i.cmms.ui.navigation.bottomNavItems
 import com.solu8i.cmms.ui.navigation.drawerItems
 import com.solu8i.cmms.ui.screen.CalendarScreen
 import com.solu8i.cmms.ui.screen.EquipmentDetailScreen
 import com.solu8i.cmms.ui.screen.EquipmentListScreen
 import com.solu8i.cmms.ui.screen.DashboardScreen
 import com.solu8i.cmms.ui.screen.DocumentScreen
+import com.solu8i.cmms.ui.screen.NotificationScreen
+import com.solu8i.cmms.ui.viewmodel.NotificationViewModel
 import com.solu8i.cmms.ui.screen.DowntimeScreen
 import com.solu8i.cmms.ui.viewmodel.DocumentViewModel
 import com.solu8i.cmms.ui.viewmodel.DowntimeViewModel
@@ -69,6 +73,7 @@ fun AppNavigation() {
     val equipmentViewModel: EquipmentViewModel = viewModel()
     val meterLogViewModel: MeterLogViewModel = viewModel()
     val downtimeViewModel: DowntimeViewModel = viewModel()
+    val notificationViewModel: NotificationViewModel = viewModel()
     val documentViewModel: DocumentViewModel = viewModel()
     val uiState by loginViewModel.uiState.collectAsState()
     val navController = rememberNavController()
@@ -127,7 +132,24 @@ fun AppNavigation() {
             )
         }
     ) {
-        Scaffold { innerPadding ->
+        Scaffold(
+            bottomBar = {
+                if (currentRoute in bottomNavItems.map { it.route }) {
+                    BottomNavBar(
+                        currentRoute = currentRoute,
+                        onNavigate = { route ->
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                }
+            }
+        ) { innerPadding ->
             NavHost(
                 navController = navController,
                 startDestination = startDestination
@@ -144,6 +166,12 @@ fun AppNavigation() {
             }
 
             composable(Routes.DASHBOARD) {
+                val unreadCount by notificationViewModel.unreadCount.collectAsState()
+
+                LaunchedEffect(Unit) {
+                    notificationViewModel.refreshUnreadCount()
+                }
+
                 DashboardScreen(
                     viewModel = mainViewModel,
                     loginViewModel = loginViewModel,
@@ -151,7 +179,16 @@ fun AppNavigation() {
                     onWorkOrderClick = { id ->
                         navController.navigate(Routes.workOrderDetail(id))
                     },
-                    onMenuClick = openDrawer
+                    onMenuClick = openDrawer,
+                    unreadNotificationCount = unreadCount,
+                    onNotificationClick = {
+                        navController.navigate(Routes.NOTIFICATION)
+                    },
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 
@@ -246,6 +283,14 @@ fun AppNavigation() {
                 MaintenanceRequestDetailScreen(
                     requestId = requestId,
                     viewModel = maintenanceRequestViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.NOTIFICATION) {
+                NotificationScreen(
+                    viewModel = notificationViewModel,
+                    bottomPadding = innerPadding.calculateBottomPadding(),
                     onBack = { navController.popBackStack() }
                 )
             }

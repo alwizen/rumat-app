@@ -31,6 +31,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +52,51 @@ data class DrawerItem(
 )
 
 val primaryGreen = Color(0xFF015E4E)
+
+val bottomNavItems = listOf(
+    DrawerItem(Routes.DASHBOARD, "Home", Icons.Default.Home),
+    DrawerItem(Routes.CALENDAR, "Kalender", Icons.Default.CalendarMonth),
+    DrawerItem(Routes.HISTORY, "Riwayat", Icons.Default.List),
+    DrawerItem(Routes.MAINTENANCE_REQUEST, "Request", Icons.Default.Assignment)
+)
+
+@Composable
+fun BottomNavBar(
+    currentRoute: String?,
+    onNavigate: (String) -> Unit
+) {
+    NavigationBar(containerColor = Color.White) {
+        bottomNavItems.forEach { item ->
+            val selected = currentRoute == item.route
+
+            NavigationBarItem(
+                selected = selected,
+                onClick = { onNavigate(item.route) },
+                icon = {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.label,
+                        modifier = Modifier.size(22.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        text = item.label,
+                        fontSize = 11.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = primaryGreen,
+                    selectedTextColor = primaryGreen,
+                    indicatorColor = primaryGreen.copy(alpha = 0.12f),
+                    unselectedIconColor = Color(0xFF6B7280),
+                    unselectedTextColor = Color(0xFF6B7280)
+                )
+            )
+        }
+    }
+}
 
 val drawerItems = listOf(
     DrawerItem(Routes.DASHBOARD, "Dashboard", Icons.Default.Home),
