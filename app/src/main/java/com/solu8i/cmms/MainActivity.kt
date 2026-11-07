@@ -4,15 +4,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -21,18 +27,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.solu8i.cmms.ui.navigation.AppDrawerContent
-import com.solu8i.cmms.ui.navigation.BottomNavBar
 import com.solu8i.cmms.ui.navigation.Routes
-import com.solu8i.cmms.ui.navigation.bottomNavItems
-import com.solu8i.cmms.ui.navigation.drawerItems
 import com.solu8i.cmms.ui.screen.CalendarScreen
 import com.solu8i.cmms.ui.screen.EquipmentDetailScreen
 import com.solu8i.cmms.ui.screen.EquipmentListScreen
 import com.solu8i.cmms.ui.screen.DashboardScreen
+import com.solu8i.cmms.ui.screen.DocumentDetailScreen
 import com.solu8i.cmms.ui.screen.DocumentScreen
 import com.solu8i.cmms.ui.screen.NotificationScreen
 import com.solu8i.cmms.ui.viewmodel.NotificationViewModel
 import com.solu8i.cmms.ui.screen.DowntimeScreen
+import com.solu8i.cmms.ui.viewmodel.DocumentDetailViewModel
 import com.solu8i.cmms.ui.viewmodel.DocumentViewModel
 import com.solu8i.cmms.ui.viewmodel.DowntimeViewModel
 import com.solu8i.cmms.ui.screen.HistoryScreen
@@ -75,15 +80,25 @@ fun AppNavigation() {
     val downtimeViewModel: DowntimeViewModel = viewModel()
     val notificationViewModel: NotificationViewModel = viewModel()
     val documentViewModel: DocumentViewModel = viewModel()
+    val documentDetailViewModel: DocumentDetailViewModel = viewModel()
     val uiState by loginViewModel.uiState.collectAsState()
     val navController = rememberNavController()
 
     val startDestination = if (uiState.isLoggedIn) Routes.DASHBOARD else Routes.LOGIN
 
+    if (!uiState.isSessionLoaded) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = Color(0xFF015E4E))
+        }
+
+        return
+    }
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
-    val showDrawer = currentRoute in drawerItems.map { it.route }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -109,7 +124,6 @@ fun AppNavigation() {
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = showDrawer,
         drawerContent = {
             AppDrawerContent(
                 currentRoute = currentRoute,
@@ -132,24 +146,7 @@ fun AppNavigation() {
             )
         }
     ) {
-        Scaffold(
-            bottomBar = {
-                if (currentRoute in bottomNavItems.map { it.route }) {
-                    BottomNavBar(
-                        currentRoute = currentRoute,
-                        onNavigate = { route ->
-                            navController.navigate(route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    )
-                }
-            }
-        ) { innerPadding ->
+        Scaffold { innerPadding ->
             NavHost(
                 navController = navController,
                 startDestination = startDestination
@@ -179,7 +176,6 @@ fun AppNavigation() {
                     onWorkOrderClick = { id ->
                         navController.navigate(Routes.workOrderDetail(id))
                     },
-                    onMenuClick = openDrawer,
                     unreadNotificationCount = unreadCount,
                     onNotificationClick = {
                         navController.navigate(Routes.NOTIFICATION)
@@ -188,7 +184,8 @@ fun AppNavigation() {
                         navController.navigate(route) {
                             launchSingleTop = true
                         }
-                    }
+                    },
+                    onMenuClick = openDrawer
                 )
             }
 
@@ -307,7 +304,21 @@ fun AppNavigation() {
                 DocumentScreen(
                     viewModel = documentViewModel,
                     bottomPadding = innerPadding.calculateBottomPadding(),
-                    onMenuClick = openDrawer
+                    onMenuClick = openDrawer,
+                    onDocumentClick = { id ->
+                        navController.navigate(Routes.documentDetail(id))
+                    }
+                )
+            }
+
+            composable(Routes.DOCUMENT_DETAIL) { entry ->
+                val documentId = entry.arguments?.getString("documentId")?.toIntOrNull() ?: 0
+
+                DocumentDetailScreen(
+                    documentId = documentId,
+                    viewModel = documentDetailViewModel,
+                    bottomPadding = innerPadding.calculateBottomPadding(),
+                    onBack = { navController.popBackStack() }
                 )
             }
 
@@ -317,7 +328,7 @@ fun AppNavigation() {
                     onMenuClick = openDrawer
                 )
             }
-            }
         }
+    }
     }
 }

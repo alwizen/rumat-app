@@ -10,6 +10,7 @@ object Routes {
     const val METER_LOG = "meter-log"
     const val DOWNTIME = "downtime"
     const val DOCUMENT = "document"
+    const val DOCUMENT_DETAIL = "document/{documentId}"
     const val MAINTENANCE_REQUEST = "maintenance-request"
     const val MY_TAB = "my-tab"
     const val NOTIFICATION = "notification"
@@ -20,4 +21,5 @@ object Routes {
     fun workOrderDetail(id: Int) = "work-order/$id"
     fun equipmentDetail(id: Int) = "equipment/$id"
     fun maintenanceRequestDetail(id: Int) = "maintenance-request/$id"
+    fun documentDetail(id: Int) = "document/$id"
 }

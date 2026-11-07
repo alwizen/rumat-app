@@ -17,6 +17,7 @@ data class LoginUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val isLoggedIn: Boolean = false,
+    val isSessionLoaded: Boolean = false,
     val baseUrl: String = RetrofitInstance.getBaseUrl(),
     val isTestingConnection: Boolean = false,
     val connectionStatus: ConnectionStatus = ConnectionStatus.IDLE,
@@ -43,7 +44,9 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             val token = tokenManager.token.firstOrNull()
             if (!token.isNullOrEmpty()) {
                 com.solu8i.cmms.data.remote.TokenProvider.token = token
-                _uiState.value = _uiState.value.copy(isLoggedIn = true)
+                _uiState.value = _uiState.value.copy(isLoggedIn = true, isSessionLoaded = true)
+            } else {
+                _uiState.value = _uiState.value.copy(isSessionLoaded = true)
             }
         }
     }

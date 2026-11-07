@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -274,49 +272,71 @@ fun DashboardScreen(
 @Composable
 fun MenuGrid(onNavigate: (String) -> Unit) {
     val menus = drawerItems.filter { it.route != Routes.DASHBOARD }
+    val columns = 4
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(4),
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        userScrollEnabled = false
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(menus.size) { index ->
-            val menu = menus[index]
-
-            Column(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White)
-                    .clickable { onNavigate(menu.route) }
-                    .padding(vertical = 12.dp, horizontal = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+        menus.chunked(columns).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .background(Color(0xFF015E4E).copy(alpha = 0.10f), RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = menu.icon,
-                        contentDescription = menu.label,
-                        tint = Color(0xFF015E4E),
-                        modifier = Modifier.size(20.dp)
+                row.forEach { menu ->
+                    MenuGridItem(
+                        label = menu.label,
+                        icon = menu.icon,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigate(menu.route) }
                     )
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = menu.label,
-                    fontSize = 11.sp,
-                    color = Color(0xFF374151),
-                    maxLines = 1
-                )
+                repeat(columns - row.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun MenuGridItem(
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .background(Color(0xFF015E4E).copy(alpha = 0.10f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = Color(0xFF015E4E),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = Color(0xFF374151),
+            maxLines = 1
+        )
     }
 }
 

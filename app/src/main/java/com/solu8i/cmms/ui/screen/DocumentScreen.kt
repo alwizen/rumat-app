@@ -51,7 +51,8 @@ import com.solu8i.cmms.ui.viewmodel.DocumentViewModel
 fun DocumentScreen(
     viewModel: DocumentViewModel,
     bottomPadding: Dp = 0.dp,
-    onMenuClick: () -> Unit = {}
+    onMenuClick: () -> Unit = {},
+    onDocumentClick: (Int) -> Unit = {}
 ) {
     val documents by viewModel.documents.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -173,7 +174,7 @@ fun DocumentScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(documents) { document ->
-                        DocumentRow(document)
+                        DocumentRow(document, onClick = { onDocumentClick(document.id) })
                     }
                 }
             }
@@ -182,7 +183,7 @@ fun DocumentScreen(
 }
 
 @Composable
-private fun DocumentRow(document: DocumentItem) {
+private fun DocumentRow(document: DocumentItem, onClick: () -> Unit = {}) {
     val accent = when (document.expiryStatus) {
         "expired" -> Color(0xFFDC2626)
         "expiring_soon" -> Color(0xFFF59E0B)
@@ -193,7 +194,8 @@ private fun DocumentRow(document: DocumentItem) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        onClick = onClick
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
