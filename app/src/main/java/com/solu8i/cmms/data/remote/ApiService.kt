@@ -1,6 +1,9 @@
 package com.solu8i.cmms.data.remote
 
 import com.solu8i.cmms.data.model.CalendarResponse
+import com.solu8i.cmms.data.model.DocumentDetailResponse
+import com.solu8i.cmms.data.model.DocumentListResponse
+import com.solu8i.cmms.data.model.DowntimeListResponse
 import com.solu8i.cmms.data.model.DashboardResponse
 import com.solu8i.cmms.data.model.EquipmentDetailResponse
 import com.solu8i.cmms.data.model.EquipmentListResponse
@@ -100,6 +103,29 @@ interface ApiService {
     suspend fun createMeterLog(
         @Body body: Map<String, @JvmSuppressWildcards Any?>
     ): Response<MeterLogCreateResponse>
+
+    @GET("downtime")
+    suspend fun getDowntime(
+        @Query("date_from") dateFrom: String? = null,
+        @Query("date_to") dateTo: String? = null,
+        @Query("equipment_id") equipmentId: Int? = null,
+        @Query("per_page") perPage: Int = 50,
+        @Query("page") page: Int = 1
+    ): Response<DowntimeListResponse>
+
+    @GET("documents")
+    suspend fun getDocuments(
+        @Query("search") search: String? = null,
+        @Query("type") type: String? = null,
+        @Query("expiry_status") expiryStatus: String? = null,
+        @Query("per_page") perPage: Int = 50,
+        @Query("page") page: Int = 1
+    ): Response<DocumentListResponse>
+
+    @GET("documents/{id}")
+    suspend fun getDocumentDetail(
+        @Path("id") id: Int
+    ): Response<DocumentDetailResponse>
 
     @GET("maintenance-calendar")
     suspend fun getMaintenanceCalendar(

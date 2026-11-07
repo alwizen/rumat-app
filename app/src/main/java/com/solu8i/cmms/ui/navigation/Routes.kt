@@ -8,6 +8,8 @@ object Routes {
     const val EQUIPMENT = "equipment"
     const val EQUIPMENT_DETAIL = "equipment/{equipmentId}"
     const val METER_LOG = "meter-log"
+    const val DOWNTIME = "downtime"
+    const val DOCUMENT = "document"
     const val MAINTENANCE_REQUEST = "maintenance-request"
     const val MY_TAB = "my-tab"
     const val WORK_ORDER_DETAIL = "work-order/{workOrderId}"

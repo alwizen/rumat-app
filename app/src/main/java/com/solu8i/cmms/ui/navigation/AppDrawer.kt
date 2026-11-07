@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Person
@@ -55,6 +57,8 @@ val drawerItems = listOf(
     DrawerItem(Routes.EQUIPMENT, "Equipment", Icons.Default.Build),
     DrawerItem(Routes.METER_LOG, "Meter Log", Icons.Default.Speed),
     DrawerItem(Routes.MAINTENANCE_REQUEST, "Request", Icons.Default.Assignment),
+    DrawerItem(Routes.DOWNTIME, "Downtime", Icons.Default.Timer),
+    DrawerItem(Routes.DOCUMENT, "Dokumen", Icons.Default.Description),
     DrawerItem(Routes.MY_TAB, "Saya", Icons.Default.Person)
 )
 

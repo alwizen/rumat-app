@@ -27,6 +27,10 @@ import com.solu8i.cmms.ui.screen.CalendarScreen
 import com.solu8i.cmms.ui.screen.EquipmentDetailScreen
 import com.solu8i.cmms.ui.screen.EquipmentListScreen
 import com.solu8i.cmms.ui.screen.DashboardScreen
+import com.solu8i.cmms.ui.screen.DocumentScreen
+import com.solu8i.cmms.ui.screen.DowntimeScreen
+import com.solu8i.cmms.ui.viewmodel.DocumentViewModel
+import com.solu8i.cmms.ui.viewmodel.DowntimeViewModel
 import com.solu8i.cmms.ui.screen.HistoryScreen
 import com.solu8i.cmms.ui.screen.LoginScreen
 import com.solu8i.cmms.ui.screen.MaintenanceRequestCreateScreen
@@ -64,6 +68,8 @@ fun AppNavigation() {
     val calendarViewModel: CalendarViewModel = viewModel()
     val equipmentViewModel: EquipmentViewModel = viewModel()
     val meterLogViewModel: MeterLogViewModel = viewModel()
+    val downtimeViewModel: DowntimeViewModel = viewModel()
+    val documentViewModel: DocumentViewModel = viewModel()
     val uiState by loginViewModel.uiState.collectAsState()
     val navController = rememberNavController()
 
@@ -241,6 +247,22 @@ fun AppNavigation() {
                     requestId = requestId,
                     viewModel = maintenanceRequestViewModel,
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.DOWNTIME) {
+                DowntimeScreen(
+                    viewModel = downtimeViewModel,
+                    bottomPadding = innerPadding.calculateBottomPadding(),
+                    onMenuClick = openDrawer
+                )
+            }
+
+            composable(Routes.DOCUMENT) {
+                DocumentScreen(
+                    viewModel = documentViewModel,
+                    bottomPadding = innerPadding.calculateBottomPadding(),
+                    onMenuClick = openDrawer
                 )
             }
 
