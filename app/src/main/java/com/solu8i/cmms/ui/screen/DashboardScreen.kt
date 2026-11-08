@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,12 +44,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -69,14 +76,44 @@ fun DashboardScreen(
     onMenuClick: () -> Unit = {},
     unreadNotificationCount: Int = 0,
     onNotificationClick: () -> Unit = {},
+    onLogout: () -> Unit = {},
     onNavigate: (String) -> Unit = {}
 ) {
     val dashboardData by viewModel.dashboardData.collectAsState()
     val isLoading by viewModel.isDashboardLoading.collectAsState()
     val userName by loginViewModel.tokenManager.userName.collectAsState(initial = null)
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadDashboard()
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null,
+                    tint = Color(0xFFDC2626)
+                )
+            },
+            title = { Text("Keluar Akun") },
+            text = { Text("Apakah Anda yakin ingin keluar dari akun ini?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLogoutDialog = false
+                    onLogout()
+                }) {
+                    Text("Keluar", color = Color(0xFFDC2626), fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Batal", color = Color(0xFF6B7280))
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -99,17 +136,9 @@ fun DashboardScreen(
                     )
                 },
                 actions = {
-                    BadgedBox(
-                        badge = {
-                            if (unreadNotificationCount > 0) {
-                                Badge(containerColor = Color(0xFFDC2626), contentColor = Color.White) {
-                                    Text(
-                                        text = if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString(),
-                                        fontSize = 10.sp
-                                    )
-                                }
-                            }
-                        }
+                    Box(
+                        modifier = Modifier.padding(end = 4.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         IconButton(onClick = onNotificationClick) {
                             Icon(
@@ -118,6 +147,37 @@ fun DashboardScreen(
                                 tint = Color.White
                             )
                         }
+
+                        if (unreadNotificationCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 2.dp, y = 4.dp)
+                                    .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                                    .background(Color(0xFFDC2626), CircleShape)
+                                    .padding(horizontal = 5.dp, vertical = 2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString(),
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    lineHeight = 12.sp
+                                )
+                            }
+                        }
+                    }
+
+                    IconButton(
+                        onClick = { showLogoutDialog = true },
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Logout",
+                            tint = Color.White
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -475,28 +535,32 @@ fun StatChip(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(26.dp)
-                    .background(tint.copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(15.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .background(tint.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = "$value",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = tint
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "$value",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = tint
-            )
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = label,

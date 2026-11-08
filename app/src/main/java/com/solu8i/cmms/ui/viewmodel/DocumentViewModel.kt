@@ -53,6 +53,12 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
         load()
     }
 
+    fun applyFilters(type: String, expiry: String) {
+        _typeFilter.value = type
+        _expiryFilter.value = expiry
+        load()
+    }
+
     fun load() {
         viewModelScope.launch {
             _isLoading.value = true

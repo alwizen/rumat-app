@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -52,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -106,7 +109,10 @@ fun LoginScreen(
                             focusedBorderColor = Color(0xFF015E4E),
                             unfocusedBorderColor = Color(0xFFCBD5E1),
                             focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedTextColor = Color(0xFF111827),
+                            unfocusedTextColor = Color(0xFF111827),
+                            cursorColor = Color(0xFF015E4E)
                         )
                     )
 
@@ -197,45 +203,79 @@ fun LoginScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF5F6FA))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFE4F2EE),
+                            Color(0xFFF5F6FA),
+                            Color(0xFFEDF1F7)
+                        )
+                    )
+                )
                 .padding(innerPadding)
         ) {
+            Box(
+                modifier = Modifier
+                    .size(240.dp)
+                    .offset(x = (-80).dp, y = (-70).dp)
+                    .background(Color(0xFF015E4E).copy(alpha = 0.08f), CircleShape)
+            )
+            Box(
+                modifier = Modifier
+                    .size(170.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 55.dp, y = 55.dp)
+                    .background(Color(0xFF0D9488).copy(alpha = 0.10f), CircleShape)
+            )
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.logo),
                     contentDescription = "Logo",
-                    modifier = Modifier.size(120.dp)
+                    modifier = Modifier.size(100.dp)
                 )
 
-//                Spacer(modifier = Modifier.height(4.dp))
-//
-//                Text(
-//                    text = "Maintenance Management System",
-//                    fontSize = 14.sp,
-//                    color = Color(0xFF6B7280)
-//                )
+                Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(40.dp))
+
+                Text(
+                    text = "Maintenance Management System",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF4B5563),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Kelola aset, work order, dan jadwal perawatan dalam satu aplikasi.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF6B7280),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
 
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    shape = RoundedCornerShape(16.dp),
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
+                            .padding(horizontal = 22.dp, vertical = 26.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -245,7 +285,16 @@ fun LoginScreen(
                             color = Color(0xFF015E4E)
                         )
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .background(Color(0xFF015E4E).copy(alpha = 0.25f), RoundedCornerShape(2.dp))
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         OutlinedTextField(
                             value = uiState.email,
@@ -272,7 +321,10 @@ fun LoginScreen(
                                 focusedBorderColor = Color(0xFF015E4E),
                                 unfocusedBorderColor = Color(0xFFD1D5DB),
                                 focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedTextColor = Color(0xFF111827),
+                                unfocusedTextColor = Color(0xFF111827),
+                                cursorColor = Color(0xFF015E4E)
                             )
                         )
 
@@ -316,7 +368,10 @@ fun LoginScreen(
                                 focusedBorderColor = Color(0xFF015E4E),
                                 unfocusedBorderColor = Color(0xFFD1D5DB),
                                 focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedTextColor = Color(0xFF111827),
+                                unfocusedTextColor = Color(0xFF111827),
+                                cursorColor = Color(0xFF015E4E)
                             )
                         )
 
@@ -375,9 +430,11 @@ fun LoginScreen(
                         showBaseUrlDialog = true
                     },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    shape = RoundedCornerShape(12.dp)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.White
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Default.CloudUpload,

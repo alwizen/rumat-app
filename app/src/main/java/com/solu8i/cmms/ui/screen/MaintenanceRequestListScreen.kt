@@ -102,7 +102,7 @@ fun MaintenanceRequestListScreen(
             FloatingActionButton(
                 onClick = onCreateClick,
                 containerColor = Color(0xFF015E4E),
-                modifier = Modifier.padding(bottom = 80.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,

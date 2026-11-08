@@ -138,10 +138,6 @@ fun AppNavigation() {
                         launchSingleTop = true
                         restoreState = true
                     }
-                },
-                onLogout = {
-                    closeDrawer()
-                    loginViewModel.logout()
                 }
             )
         }
@@ -180,6 +176,7 @@ fun AppNavigation() {
                     onNotificationClick = {
                         navController.navigate(Routes.NOTIFICATION)
                     },
+                    onLogout = { loginViewModel.logout() },
                     onNavigate = { route ->
                         navController.navigate(route) {
                             launchSingleTop = true

@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
@@ -27,7 +26,6 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
@@ -107,7 +105,7 @@ val drawerItems = listOf(
     DrawerItem(Routes.MAINTENANCE_REQUEST, "Request", Icons.Default.Assignment),
     DrawerItem(Routes.DOWNTIME, "Downtime", Icons.Default.Timer),
     DrawerItem(Routes.DOCUMENT, "Dokumen", Icons.Default.Description),
-    DrawerItem(Routes.MY_TAB, "Saya", Icons.Default.Person)
+    DrawerItem(Routes.MY_TAB, "Profil", Icons.Default.Person)
 )
 
 @Composable
@@ -115,8 +113,7 @@ fun AppDrawerContent(
     currentRoute: String?,
     userName: String?,
     userRole: String?,
-    onNavigate: (String) -> Unit,
-    onLogout: () -> Unit
+    onNavigate: (String) -> Unit
 ) {
     ModalDrawerSheet(
         drawerContainerColor = Color.White,
@@ -174,40 +171,6 @@ fun AppDrawerContent(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            HorizontalDivider(
-                color = Color(0xFFF3F4F6),
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            NavigationDrawerItem(
-                label = {
-                    Text(
-                        text = "Logout",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = "Logout",
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                selected = false,
-                onClick = onLogout,
-                colors = NavigationDrawerItemDefaults.colors(
-                    unselectedIconColor = Color(0xFFDC2626),
-                    unselectedTextColor = Color(0xFFDC2626)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
 
 //            Text(
 //                text = "RUMAT • BY Solu8i Project ",

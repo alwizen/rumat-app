@@ -212,7 +212,8 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             com.solu8i.cmms.data.remote.TokenProvider.token = null
             tokenManager.clearAuthData()
             _uiState.value = LoginUiState(
-                baseUrl = _uiState.value.baseUrl
+                baseUrl = _uiState.value.baseUrl,
+                isSessionLoaded = true
             )
         }
     }

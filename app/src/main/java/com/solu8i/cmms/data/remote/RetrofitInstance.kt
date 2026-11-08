@@ -13,7 +13,7 @@ object TokenProvider {
 
 object RetrofitInstance {
 
-    private var baseUrl: String = "http://192.168.110.112:8000/api/"
+    private var baseUrl: String = "https://rumat.ft-tegal.com/api/"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
