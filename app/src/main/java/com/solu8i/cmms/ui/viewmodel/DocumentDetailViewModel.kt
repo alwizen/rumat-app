@@ -44,4 +44,9 @@ class DocumentDetailViewModel(application: Application) : AndroidViewModel(appli
     fun consumeError() {
         _errorMessage.value = null
     }
+
+    fun reset() {
+        _document.value = null
+        _errorMessage.value = null
+    }
 }

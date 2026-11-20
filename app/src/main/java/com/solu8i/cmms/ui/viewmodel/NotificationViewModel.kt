@@ -96,4 +96,10 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     fun consumeError() {
         _errorMessage.value = null
     }
+
+    fun reset() {
+        _items.value = emptyList()
+        _unreadCount.value = 0
+        _errorMessage.value = null
+    }
 }

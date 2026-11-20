@@ -174,7 +174,7 @@ fun DocumentDetailScreen(
                                 if (url.isNullOrBlank()) {
                                     Toast.makeText(context, "File tidak tersedia", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    downloadFile(context, url, current.title)
+                                    downloadFile(context, url, current.title, current.fileName)
                                 }
                             },
                             modifier = Modifier.weight(1f),
@@ -221,7 +221,7 @@ private fun DocumentPreview(document: DocumentItem) {
 
             if (url.isNullOrBlank()) {
                 EmptyPreview()
-            } else if (isImage(url)) {
+            } else if (isImage(document.fileName ?: url)) {
                 AsyncImage(
                     model = url,
                     contentDescription = document.title,
@@ -386,9 +386,10 @@ private fun openFile(context: Context, url: String?) {
     }
 }
 
-private fun downloadFile(context: Context, url: String, title: String) {
+private fun downloadFile(context: Context, url: String, title: String, fileName: String?) {
     try {
-        val extension = url.substringBefore('?').substringAfterLast('.', "pdf")
+        val source = fileName?.takeIf { it.isNotBlank() } ?: url.substringBefore('?')
+        val extension = source.substringAfterLast('.', "pdf")
         val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
 
         val request = android.app.DownloadManager.Request(Uri.parse(url))

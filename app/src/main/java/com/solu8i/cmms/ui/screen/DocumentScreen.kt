@@ -1,8 +1,6 @@
 package com.solu8i.cmms.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -37,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,7 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -220,56 +213,13 @@ fun DocumentScreen(
                 .background(Color(0xFFF5F6FA))
                 .padding(innerPadding)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = viewModel::onQueryChanged,
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Cari judul, nomor, tag, dll", fontSize = 11.sp) },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF9CA3AF))
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (hasActiveFilter) Color(0xFF015E4E) else Color.White)
-                        .border(
-                            width = 1.dp,
-                            color = if (hasActiveFilter) Color(0xFF015E4E) else Color(0xFFD1D5DB),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .clickable { showFilterSheet = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.FilterList,
-                        contentDescription = "Filter",
-                        tint = if (hasActiveFilter) Color.White else Color(0xFF6B7280)
-                    )
-
-                    if (hasActiveFilter) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(7.dp)
-                                .size(8.dp)
-                                .background(Color(0xFFDC2626), CircleShape)
-                        )
-                    }
-                }
-            }
+            SearchFilterBar(
+                query = query,
+                onQueryChange = viewModel::onQueryChanged,
+                hasActiveFilter = hasActiveFilter,
+                onClickFilter = { showFilterSheet = true },
+                placeholder = "Cari judul, nomor, tag, dll"
+            )
 
             when {
                 isLoading && documents.isEmpty() -> Box(

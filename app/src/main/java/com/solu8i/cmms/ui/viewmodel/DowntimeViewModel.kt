@@ -46,4 +46,9 @@ class DowntimeViewModel(application: Application) : AndroidViewModel(application
     fun consumeError() {
         _errorMessage.value = null
     }
+
+    fun reset() {
+        _items.value = emptyList()
+        _errorMessage.value = null
+    }
 }

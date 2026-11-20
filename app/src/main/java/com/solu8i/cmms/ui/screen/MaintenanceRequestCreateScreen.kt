@@ -75,10 +75,11 @@ import coil.compose.AsyncImage
 import com.solu8i.cmms.ui.viewmodel.MaintenanceRequestViewModel
 import java.io.File
 
+private const val MAX_PHOTOS = 5
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun MaintenanceRequestCreateScreen(
-    viewModel: MaintenanceRequestViewModel,
+fun MaintenanceRequestCreateScreen(    viewModel: MaintenanceRequestViewModel,
     onBack: () -> Unit,
     onSuccess: () -> Unit
 ) {
@@ -87,6 +88,7 @@ fun MaintenanceRequestCreateScreen(
     val isCreating by viewModel.isCreating.collectAsState()
     val createSuccess by viewModel.createSuccess.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val maxPhotos = MAX_PHOTOS
 
     var selectedAreaId by remember { mutableStateOf<Int?>(null) }
     var selectedAreaName by remember { mutableStateOf("") }
@@ -111,18 +113,20 @@ fun MaintenanceRequestCreateScreen(
     var showConfirmDialog by remember { mutableStateOf(false) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 5)
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = MAX_PHOTOS)
     ) { uris: List<Uri> ->
-        selectedPhotos = selectedPhotos + uris
+        selectedPhotos = (selectedPhotos + uris).take(MAX_PHOTOS)
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
         bitmap?.let {
-            val uri = bitmapToUri(context, it)
-            if (uri != null) {
-                selectedPhotos = selectedPhotos + uri
+            if (selectedPhotos.size < MAX_PHOTOS) {
+                val uri = bitmapToUri(context, it)
+                if (uri != null) {
+                    selectedPhotos = (selectedPhotos + uri).take(MAX_PHOTOS)
+                }
             }
         }
     }
@@ -619,7 +623,7 @@ fun MaintenanceRequestCreateScreen(
           
             item {
                 Text(
-                    text = "Foto (${selectedPhotos.size}/5)",
+                    text = "Foto (${selectedPhotos.size}/$maxPhotos)",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF015E4E)
@@ -628,7 +632,18 @@ fun MaintenanceRequestCreateScreen(
 
             item {
                 Button(
-                    onClick = { showImageSourceDialog = true },
+                    onClick = {
+                        if (selectedPhotos.size >= maxPhotos) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Maksimal $maxPhotos foto",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            showImageSourceDialog = true
+                        }
+                    },
+                    enabled = selectedPhotos.size < maxPhotos,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF015E4E)),
                     shape = RoundedCornerShape(8.dp)
                 ) {

@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.solu8i.cmms.ui.navigation.AppDrawerContent
 import com.solu8i.cmms.ui.navigation.Routes
+import com.solu8i.cmms.ui.navigation.canExecuteHousekeeping
+import com.solu8i.cmms.ui.navigation.isHousekeepingRole
+import com.solu8i.cmms.ui.navigation.PENGAWAS_ROLE
 import com.solu8i.cmms.ui.screen.CalendarScreen
 import com.solu8i.cmms.ui.screen.EquipmentDetailScreen
 import com.solu8i.cmms.ui.screen.EquipmentListScreen
@@ -41,19 +45,27 @@ import com.solu8i.cmms.ui.viewmodel.DocumentDetailViewModel
 import com.solu8i.cmms.ui.viewmodel.DocumentViewModel
 import com.solu8i.cmms.ui.viewmodel.DowntimeViewModel
 import com.solu8i.cmms.ui.screen.HistoryScreen
+import com.solu8i.cmms.ui.screen.HousekeepingDetailScreen
+import com.solu8i.cmms.ui.screen.HousekeepingDashboardScreen
+import com.solu8i.cmms.ui.screen.HousekeepingListScreen
+import com.solu8i.cmms.ui.screen.HousekeepingRequestCreateScreen
+import com.solu8i.cmms.ui.screen.HousekeepingRequestDetailScreen
+import com.solu8i.cmms.ui.screen.HousekeepingRequestListScreen
 import com.solu8i.cmms.ui.screen.LoginScreen
 import com.solu8i.cmms.ui.screen.MaintenanceRequestCreateScreen
 import com.solu8i.cmms.ui.screen.MaintenanceRequestDetailScreen
 import com.solu8i.cmms.ui.screen.MaintenanceRequestListScreen
-import com.solu8i.cmms.ui.screen.MeterLogScreen
 import com.solu8i.cmms.ui.screen.MyTabScreen
 import com.solu8i.cmms.ui.screen.WorkOrderDetailScreen
 import com.solu8i.cmms.ui.theme.CMMSTheme
 import com.solu8i.cmms.ui.viewmodel.CalendarViewModel
 import com.solu8i.cmms.ui.viewmodel.EquipmentViewModel
+import com.solu8i.cmms.ui.viewmodel.HousekeepingDetailViewModel
+import com.solu8i.cmms.ui.viewmodel.HousekeepingRequestViewModel
+import com.solu8i.cmms.ui.viewmodel.HousekeepingDashboardViewModel
+import com.solu8i.cmms.ui.viewmodel.HousekeepingViewModel
 import com.solu8i.cmms.ui.viewmodel.LoginViewModel
 import com.solu8i.cmms.ui.viewmodel.MaintenanceRequestViewModel
-import com.solu8i.cmms.ui.viewmodel.MeterLogViewModel
 import com.solu8i.cmms.ui.viewmodel.MainViewModel
 import com.solu8i.cmms.ui.viewmodel.WorkOrderDetailViewModel
 
@@ -76,15 +88,27 @@ fun AppNavigation() {
     val maintenanceRequestViewModel: MaintenanceRequestViewModel = viewModel()
     val calendarViewModel: CalendarViewModel = viewModel()
     val equipmentViewModel: EquipmentViewModel = viewModel()
-    val meterLogViewModel: MeterLogViewModel = viewModel()
     val downtimeViewModel: DowntimeViewModel = viewModel()
     val notificationViewModel: NotificationViewModel = viewModel()
     val documentViewModel: DocumentViewModel = viewModel()
     val documentDetailViewModel: DocumentDetailViewModel = viewModel()
+    val housekeepingViewModel: HousekeepingViewModel = viewModel()
+    val housekeepingDashboardViewModel: HousekeepingDashboardViewModel = viewModel()
+    val housekeepingRequestViewModel: HousekeepingRequestViewModel = viewModel()
     val uiState by loginViewModel.uiState.collectAsState()
     val navController = rememberNavController()
 
-    val startDestination = if (uiState.isLoggedIn) Routes.DASHBOARD else Routes.LOGIN
+    val drawerUserName by loginViewModel.tokenManager.userName.collectAsState(initial = null)
+    val drawerUserRole by loginViewModel.tokenManager.userRoles.collectAsState(initial = null)
+
+    val startDestination = remember(uiState.isSessionLoaded) {
+        when {
+            !uiState.isLoggedIn -> Routes.LOGIN
+            uiState.userRoles.any { isHousekeepingRole(it) } -> Routes.HOUSEKEEPING_DASHBOARD
+            uiState.userRoles.any { it.equals(PENGAWAS_ROLE, ignoreCase = true) } -> Routes.MAINTENANCE_REQUEST
+            else -> Routes.DASHBOARD
+        }
+    }
 
     if (!uiState.isSessionLoaded) {
         Box(
@@ -103,9 +127,6 @@ fun AppNavigation() {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    val drawerUserName by loginViewModel.tokenManager.userName.collectAsState(initial = null)
-    val drawerUserRole by loginViewModel.tokenManager.userRoles.collectAsState(initial = null)
-
     LaunchedEffect(uiState.isLoggedIn) {
         if (!uiState.isLoggedIn) {
             navController.navigate(Routes.LOGIN) {
@@ -122,6 +143,21 @@ fun AppNavigation() {
         scope.launch { drawerState.close() }
     }
 
+    val performLogout: () -> Unit = {
+        mainViewModel.reset()
+        maintenanceRequestViewModel.reset()
+        calendarViewModel.reset()
+        equipmentViewModel.reset()
+        downtimeViewModel.reset()
+        notificationViewModel.reset()
+        documentViewModel.reset()
+        documentDetailViewModel.reset()
+        housekeepingViewModel.reset()
+        housekeepingDashboardViewModel.reset()
+        housekeepingRequestViewModel.reset()
+        loginViewModel.logout()
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -129,14 +165,19 @@ fun AppNavigation() {
                 currentRoute = currentRoute,
                 userName = drawerUserName,
                 userRole = drawerUserRole,
+                onLogout = {
+                    closeDrawer()
+                    performLogout()
+                },
                 onNavigate = { route ->
                     closeDrawer()
                     navController.navigate(route) {
                         popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+                            inclusive = false
+                            saveState = false
                         }
                         launchSingleTop = true
-                        restoreState = true
+                        restoreState = false
                     }
                 }
             )
@@ -151,7 +192,14 @@ fun AppNavigation() {
                 LoginScreen(
                     viewModel = loginViewModel,
                     onLoginSuccess = {
-                        navController.navigate(Routes.DASHBOARD) {
+                        val destination = when {
+                            uiState.userRoles.any { isHousekeepingRole(it) } -> Routes.HOUSEKEEPING_DASHBOARD
+                            uiState.userRoles.any {
+                                it.equals(PENGAWAS_ROLE, ignoreCase = true)
+                            } -> Routes.MAINTENANCE_REQUEST
+                            else -> Routes.DASHBOARD
+                        }
+                        navController.navigate(destination) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
                         }
                     }
@@ -176,7 +224,7 @@ fun AppNavigation() {
                     onNotificationClick = {
                         navController.navigate(Routes.NOTIFICATION)
                     },
-                    onLogout = { loginViewModel.logout() },
+                    onLogout = performLogout,
                     onNavigate = { route ->
                         navController.navigate(route) {
                             launchSingleTop = true
@@ -222,18 +270,8 @@ fun AppNavigation() {
                 EquipmentDetailScreen(
                     equipmentId = equipmentId,
                     viewModel = equipmentViewModel,
-                    meterLogViewModel = meterLogViewModel,
                     onBack = { navController.popBackStack() },
                     bottomPadding = innerPadding.calculateBottomPadding()
-                )
-            }
-
-            composable(Routes.METER_LOG) {
-                MeterLogScreen(
-                    viewModel = meterLogViewModel,
-                    equipmentViewModel = equipmentViewModel,
-                    bottomPadding = innerPadding.calculateBottomPadding(),
-                    onMenuClick = openDrawer
                 )
             }
 
@@ -323,6 +361,77 @@ fun AppNavigation() {
                 MyTabScreen(
                     loginViewModel = loginViewModel,
                     onMenuClick = openDrawer
+                )
+            }
+
+            composable(Routes.HOUSEKEEPING_DASHBOARD) {
+                HousekeepingDashboardScreen(
+                    dashboardViewModel = housekeepingDashboardViewModel,
+                    housekeepingViewModel = housekeepingViewModel,
+                    userName = drawerUserName,
+                    onPlanClick = { id ->
+                        navController.navigate(Routes.housekeepingDetail(id))
+                    },
+                    onOpenPlans = { navController.navigate(Routes.HOUSEKEEPING) },
+                    onOpenProfile = { navController.navigate(Routes.MY_TAB) },
+                    onMenuClick = openDrawer,
+                    bottomPadding = innerPadding.calculateBottomPadding(),
+                )
+            }
+
+            composable(Routes.HOUSEKEEPING) {
+                HousekeepingListScreen(
+                    viewModel = housekeepingViewModel,
+                    onPlanClick = { id ->
+                        navController.navigate(Routes.housekeepingDetail(id))
+                    },
+                    bottomPadding = innerPadding.calculateBottomPadding(),
+                    onMenuClick = openDrawer
+                )
+            }
+
+            composable(Routes.HOUSEKEEPING_DETAIL) { backStackEntry ->
+                val planId = backStackEntry.arguments?.getString("planId")?.toIntOrNull() ?: 0
+                val detailViewModel: HousekeepingDetailViewModel = viewModel()
+                HousekeepingDetailScreen(
+                    planId = planId,
+                    viewModel = detailViewModel,
+                    onBack = { navController.popBackStack() },
+                    bottomPadding = innerPadding.calculateBottomPadding(),
+                    // SPV GOS hanya membuat plan & menyetujui laporan;
+                    // eksekusi checklist milik patra-jasa.
+                    canExecute = canExecuteHousekeeping(uiState.userRoles.joinToString(",")),
+                )
+            }
+
+            composable(Routes.HOUSEKEEPING_REQUEST) {
+                HousekeepingRequestListScreen(
+                    viewModel = housekeepingRequestViewModel,
+                    onRequestClick = { id ->
+                        navController.navigate(Routes.housekeepingRequestDetail(id))
+                    },
+                    onCreateClick = {
+                        navController.navigate(Routes.HOUSEKEEPING_REQUEST_CREATE)
+                    },
+                    bottomPadding = innerPadding.calculateBottomPadding(),
+                    onMenuClick = openDrawer
+                )
+            }
+
+            composable(Routes.HOUSEKEEPING_REQUEST_CREATE) {
+                HousekeepingRequestCreateScreen(
+                    viewModel = housekeepingRequestViewModel,
+                    onBack = { navController.popBackStack() },
+                    onSuccess = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.HOUSEKEEPING_REQUEST_DETAIL) { backStackEntry ->
+                val requestId = backStackEntry.arguments?.getString("requestId")?.toIntOrNull() ?: 0
+                HousekeepingRequestDetailScreen(
+                    requestId = requestId,
+                    viewModel = housekeepingRequestViewModel,
+                    onBack = { navController.popBackStack() }
                 )
             }
         }

@@ -7,7 +7,6 @@ object Routes {
     const val CALENDAR = "calendar"
     const val EQUIPMENT = "equipment"
     const val EQUIPMENT_DETAIL = "equipment/{equipmentId}"
-    const val METER_LOG = "meter-log"
     const val DOWNTIME = "downtime"
     const val DOCUMENT = "document"
     const val DOCUMENT_DETAIL = "document/{documentId}"
@@ -18,8 +17,18 @@ object Routes {
     const val MAINTENANCE_REQUEST_DETAIL = "maintenance-request/{requestId}"
     const val MAINTENANCE_REQUEST_CREATE = "maintenance-request-create"
 
+    const val HOUSEKEEPING_DASHBOARD = "housekeeping-dashboard"
+    const val HOUSEKEEPING = "housekeeping"
+    const val HOUSEKEEPING_DETAIL = "housekeeping/{planId}"
+
+    const val HOUSEKEEPING_REQUEST = "housekeeping-request"
+    const val HOUSEKEEPING_REQUEST_CREATE = "housekeeping-request-create"
+    const val HOUSEKEEPING_REQUEST_DETAIL = "housekeeping-request/{requestId}"
+
     fun workOrderDetail(id: Int) = "work-order/$id"
     fun equipmentDetail(id: Int) = "equipment/$id"
     fun maintenanceRequestDetail(id: Int) = "maintenance-request/$id"
     fun documentDetail(id: Int) = "document/$id"
+    fun housekeepingDetail(id: Int) = "housekeeping/$id"
+    fun housekeepingRequestDetail(id: Int) = "housekeeping-request/$id"
 }

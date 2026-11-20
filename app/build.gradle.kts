@@ -20,10 +20,18 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("boolean", "LOG_HTTP_BODY", "true")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT", "true")
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
             optimization {
                 enable = false
             }
+            buildConfigField("boolean", "LOG_HTTP_BODY", "false")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT", "false")
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
         }
     }
     compileOptions {
@@ -32,6 +40,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

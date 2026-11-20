@@ -1,5 +1,7 @@
 package com.solu8i.cmms.data.remote
 
+import com.solu8i.cmms.BuildConfig
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -16,7 +18,12 @@ object RetrofitInstance {
     private var baseUrl: String = "https://rumat.ft-tegal.com/api/"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = if (BuildConfig.LOG_HTTP_BODY) {
+            HttpLoggingInterceptor.Level.BODY
+        } else {
+            HttpLoggingInterceptor.Level.NONE
+        }
+        redactHeader("Authorization")
     }
 
     private val authInterceptor = Interceptor { chain ->
@@ -47,9 +54,42 @@ object RetrofitInstance {
         private set
 
     fun updateBaseUrl(newUrl: String) {
-        val url = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
-        baseUrl = url
+        require(isAllowedUrl(newUrl)) {
+            "URL server harus menggunakan HTTPS pada build release."
+        }
+        baseUrl = normalizeBaseUrl(newUrl)
         api = buildApi(baseUrl)
+    }
+
+    /**
+     * Normalisasi base URL agar selalu berakhiran `/api/`.
+     * Contoh: `http://192.168.110.112:8000` -> `http://192.168.110.112:8000/api/`
+     */
+    fun normalizeBaseUrl(url: String): String {
+        val parsed = url.trim().toHttpUrlOrNull()
+            ?: return if (url.trim().endsWith("/")) url.trim() else "${url.trim()}/"
+
+        val pathSegments = parsed.pathSegments.filter { it.isNotEmpty() }
+
+        if (pathSegments.isEmpty()) {
+            return parsed.newBuilder().addPathSegment("api").addPathSegment("").build().toString()
+        }
+
+        return parsed.newBuilder()
+            .encodedPath("/" + pathSegments.joinToString("/") + "/")
+            .build()
+            .toString()
+    }
+
+    /**
+     * Build release hanya mengizinkan HTTPS; build debug boleh HTTP untuk server lokal.
+     */
+    fun isAllowedUrl(url: String): Boolean {
+        val trimmed = url.trim()
+        if (trimmed.isEmpty()) {
+            return false
+        }
+        return BuildConfig.ALLOW_CLEARTEXT || trimmed.startsWith("https://", ignoreCase = true)
     }
 
     fun getBaseUrl(): String = baseUrl

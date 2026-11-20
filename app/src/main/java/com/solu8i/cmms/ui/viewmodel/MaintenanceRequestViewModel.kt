@@ -1,8 +1,6 @@
 package com.solu8i.cmms.ui.viewmodel
 
 import android.app.Application
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +8,7 @@ import com.solu8i.cmms.data.model.EquipmentListItem
 import com.solu8i.cmms.data.model.MaintenanceRequestDetail
 import com.solu8i.cmms.data.model.MaintenanceRequestItem
 import com.solu8i.cmms.data.remote.RetrofitInstance
+import com.solu8i.cmms.ui.util.ImageFiles
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -18,7 +17,6 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
-import java.io.ByteArrayOutputStream
 
 class MaintenanceRequestViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -28,8 +26,57 @@ class MaintenanceRequestViewModel(application: Application) : AndroidViewModel(a
     private val _isRequestsLoading = MutableStateFlow(false)
     val isRequestsLoading: StateFlow<Boolean> = _isRequestsLoading
 
+    private val _isRequestsLoadingMore = MutableStateFlow(false)
+    val isRequestsLoadingMore: StateFlow<Boolean> = _isRequestsLoadingMore
+
+    private val _hasMoreRequests = MutableStateFlow(false)
+    val hasMoreRequests: StateFlow<Boolean> = _hasMoreRequests
+
+    private var requestsPage = 1
+    private var requestsLastPage = 1
+    private var requestsStatus: String? = null
+
+    private val requestsPerPage = 30
+
     private val _selectedStatus = MutableStateFlow("All")
     val selectedStatus: StateFlow<String> = _selectedStatus
+
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query
+
+    private val _dateFrom = MutableStateFlow("")
+    val dateFrom: StateFlow<String> = _dateFrom
+
+    private val _dateTo = MutableStateFlow("")
+    val dateTo: StateFlow<String> = _dateTo
+
+    private var requestsDateFrom: String? = null
+    private var requestsDateTo: String? = null
+
+    private var searchJob: kotlinx.coroutines.Job? = null
+
+    fun onQueryChanged(value: String) {
+        _query.value = value
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(350)
+            reloadRequests()
+        }
+    }
+
+    fun applyFilters(status: String, dateFrom: String = "", dateTo: String = "") {
+        _selectedStatus.value = status
+        _dateFrom.value = dateFrom
+        _dateTo.value = dateTo
+        reloadRequests()
+    }
+
+    private fun reloadRequests() {
+        requestsStatus = _selectedStatus.value.takeIf { it != "All" }
+        requestsDateFrom = _dateFrom.value.takeIf { it.isNotBlank() }
+        requestsDateTo = _dateTo.value.takeIf { it.isNotBlank() }
+        fetchRequests(page = 1)
+    }
 
     private val _detail = MutableStateFlow<MaintenanceRequestDetail?>(null)
     val detail: StateFlow<MaintenanceRequestDetail?> = _detail
@@ -49,21 +96,46 @@ class MaintenanceRequestViewModel(application: Application) : AndroidViewModel(a
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
-    fun loadRequests(status: String? = null, page: Int = 1) {
+    fun loadRequests(status: String? = null) {
+        _selectedStatus.value = status ?: "All"
+        reloadRequests()
+    }
+
+    fun loadMoreRequests() {
+        if (_isRequestsLoading.value || _isRequestsLoadingMore.value || !_hasMoreRequests.value) {
+            return
+        }
+
+        fetchRequests(page = requestsPage + 1, append = true)
+    }
+
+    private fun fetchRequests(page: Int, append: Boolean = false) {
         viewModelScope.launch {
-            _isRequestsLoading.value = true
+            if (append) _isRequestsLoadingMore.value = true else _isRequestsLoading.value = true
             try {
                 val response = RetrofitInstance.api.getMaintenanceRequests(
-                    status = status,
-                    perPage = 50,
+                    status = requestsStatus,
+                    search = _query.value.takeIf { it.isNotBlank() },
+                    dateFrom = requestsDateFrom,
+                    dateTo = requestsDateTo,
+                    perPage = requestsPerPage,
                     page = page
                 )
                 if (response.isSuccessful) {
-                    _requests.value = response.body()?.data ?: emptyList()
+                    val body = response.body()
+                    val items = body?.data.orEmpty()
+                    _requests.value = if (append) {
+                        _requests.value + items.filter { item -> _requests.value.none { it.id == item.id } }
+                    } else {
+                        items
+                    }
+                    requestsLastPage = body?.meta?.lastPage ?: 1
+                    requestsPage = body?.meta?.currentPage ?: page
+                    _hasMoreRequests.value = requestsPage < requestsLastPage
                 }
             } catch (_: Exception) {
             } finally {
-                _isRequestsLoading.value = false
+                if (append) _isRequestsLoadingMore.value = false else _isRequestsLoading.value = false
             }
         }
     }
@@ -179,30 +251,25 @@ class MaintenanceRequestViewModel(application: Application) : AndroidViewModel(a
     }
 
     private fun getFileFromUri(uri: Uri): File? {
-        return try {
-            val contentResolver = getApplication<Application>().contentResolver
-            val inputStream = contentResolver.openInputStream(uri) ?: return null
+        return ImageFiles.fromUri(getApplication<Application>(), uri)
+    }
 
-            val bitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream.close()
-
-            if (bitmap == null) return null
-
-            val baos = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos)
-            bitmap.recycle()
-
-            val tempFile = File.createTempFile("photo_", ".jpg", getApplication<Application>().cacheDir)
-            tempFile.writeBytes(baos.toByteArray())
-
-            if (tempFile.length() == 0L) {
-                tempFile.delete()
-                return null
-            }
-
-            tempFile
-        } catch (_: Exception) {
-            null
-        }
+    fun reset() {
+        _requests.value = emptyList()
+        _detail.value = null
+        _equipmentList.value = emptyList()
+        _selectedStatus.value = "All"
+        _createSuccess.value = false
+        _errorMessage.value = null
+        _isRequestsLoadingMore.value = false
+        _hasMoreRequests.value = false
+        requestsPage = 1
+        requestsLastPage = 1
+        requestsStatus = null
+        _query.value = ""
+        _dateFrom.value = ""
+        _dateTo.value = ""
+        requestsDateFrom = null
+        requestsDateTo = null
     }
 }

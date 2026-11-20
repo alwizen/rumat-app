@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,6 +36,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -58,9 +60,59 @@ fun EquipmentListScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val query by viewModel.query.collectAsState()
+    val statusFilter by viewModel.statusFilter.collectAsState()
+    val areaFilter by viewModel.areaFilter.collectAsState()
+    val typeFilter by viewModel.typeFilter.collectAsState()
+    val areaOptions by viewModel.areaOptions.collectAsState()
+    val typeOptions by viewModel.typeOptions.collectAsState()
+
+    var showFilterSheet by remember { mutableStateOf(false) }
+    val hasActiveFilter = statusFilter.isNotBlank() || areaFilter.isNotBlank() || typeFilter.isNotBlank()
 
     LaunchedEffect(Unit) {
+        viewModel.loadFilterOptions()
         viewModel.loadEquipment()
+    }
+
+    if (showFilterSheet) {
+        val filterGroups = listOf(
+            FilterGroup(
+                "Status",
+                listOf(
+                    FilterOption("", "Semua"),
+                    FilterOption("active", "Active"),
+                    FilterOption("inactive", "Inactive"),
+                    FilterOption("retired", "Retired"),
+                )
+            ),
+            FilterGroup(
+                "Tipe Equipment",
+                listOf(FilterOption("", "Semua")) + typeOptions.map { FilterOption(it.id.toString(), it.name) }
+            ),
+            FilterGroup(
+                "Area",
+                listOf(FilterOption("", "Semua")) + areaOptions.map { FilterOption(it.id.toString(), it.name) }
+            ),
+        )
+
+        FilterBottomSheet(
+            title = "Filter Equipment",
+            groups = filterGroups,
+            current = mapOf(
+                "Status" to statusFilter,
+                "Tipe Equipment" to typeFilter,
+                "Area" to areaFilter,
+            ),
+            onDismiss = { showFilterSheet = false },
+            onApply = { values ->
+                viewModel.applyFilters(
+                    status = values["Status"] ?: "",
+                    areaId = values["Area"] ?: "",
+                    typeId = values["Tipe Equipment"] ?: "",
+                )
+                showFilterSheet = false
+            }
+        )
     }
 
     Scaffold(
@@ -85,18 +137,12 @@ fun EquipmentListScreen(
                 .background(Color(0xFFF5F6FA))
                 .padding(innerPadding)
         ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::onQueryChanged,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                placeholder = { Text("Cari tag, deskripsi, atau tipe", fontSize = 13.sp) },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF9CA3AF))
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+            SearchFilterBar(
+                query = query,
+                onQueryChange = viewModel::onQueryChanged,
+                hasActiveFilter = hasActiveFilter,
+                onClickFilter = { showFilterSheet = true },
+                placeholder = "Cari tag, deskripsi, atau tipe"
             )
 
             when {
@@ -219,33 +265,8 @@ private fun EquipmentRow(item: EquipmentListItem, onClick: () -> Unit) {
                     Text(text = it, fontSize = 10.sp, color = Color(0xFF9CA3AF))
                 }
 
-                item.latestMeterLog?.let { meter ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = null,
-                            tint = Color(0xFF015E4E),
-                            modifier = Modifier.size(11.dp)
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                            text = formatMeter(meter.value),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF015E4E)
-                        )
-                    }
-                }
             }
         }
     }
 }
 
-private fun formatMeter(value: Double): String {
-    return if (value == value.toLong().toDouble()) {
-        value.toLong().toString()
-    } else {
-        String.format(java.util.Locale.US, "%.2f", value)
-    }
-}

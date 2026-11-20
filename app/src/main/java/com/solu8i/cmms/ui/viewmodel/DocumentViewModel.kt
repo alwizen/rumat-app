@@ -111,4 +111,12 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
             "no_expiry" to "Tanpa Expiry"
         )
     }
+
+    fun reset() {
+        _documents.value = emptyList()
+        _query.value = ""
+        _typeFilter.value = ""
+        _expiryFilter.value = ""
+        _errorMessage.value = null
+    }
 }

@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -56,6 +58,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.Text
@@ -98,7 +101,7 @@ fun WorkOrderDetailScreen(
     }
 
     editingActivity?.let { activity ->
-        ActivityResultDialog(
+        ActivityResultScreen(
             activity = activity,
             isSubmitting = isSubmitting,
             onDismiss = { editingActivity = null },
@@ -124,6 +127,7 @@ fun WorkOrderDetailScreen(
                 editingActivity = null
             }
         )
+        return
     }
 
     confirmStatus?.let { status ->
@@ -220,10 +224,37 @@ fun WorkOrderDetailScreen(
                 ) {
                     item { StatusHeader(detail!!) }
 
+                    if (!detail!!.canExecute) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED))
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Text(
+                                        text = "Belum dapat dikerjakan",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFB45309)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Checklist baru bisa diisi pada tanggal " +
+                                            (detail!!.startAt?.take(10) ?: "-") + ".",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF92400E)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     item {
                         WorkOrderActions(
                             status = detail!!.status,
                             isSubmitting = isSubmitting,
+                            enabled = detail!!.canExecute,
                             onChangeStatus = { confirmStatus = it }
                         )
                     }
@@ -233,6 +264,12 @@ fun WorkOrderDetailScreen(
                             InfoRow("Nomor WO", detail!!.workOrderNumber)
                             InfoRow("Status", detail!!.status)
                             InfoRow("Klasifikasi", detail!!.classification)
+                            detail!!.maintenanceRequest?.let { mr ->
+                                InfoRow(
+                                    "Sumber",
+                                    "Maintenance Request " + (mr.requestNumber ?: "#${mr.id}")
+                                )
+                            }
                             detail!!.interval?.let { InfoRow("Interval", it) }
                             detail!!.startAt?.let { InfoRow("Tanggal Mulai", it.take(10)) }
                             detail!!.finishAt?.let { InfoRow("Tanggal Selesai", it.take(10)) }
@@ -274,85 +311,47 @@ fun WorkOrderDetailScreen(
                         }
 
                         if (activities.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = "Aktivitas",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF015E4E)
-                                )
+                            // Item yang belum dikerjakan tampil di atas; yang sudah dieksekusi
+                            // dipindah ke bawah dengan judul "Sudah Dikerjakan".
+                            val pending = activities.filter { it.executed != true }
+                            val done = activities.filter { it.executed == true }
+
+                            if (pending.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = "Aktivitas (${pending.size} belum)",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF015E4E)
+                                    )
+                                }
+
+                                items(pending) { act ->
+                                    ActivityChecklistCard(
+                                        act = act,
+                                        enabled = detail!!.canExecute,
+                                        onClick = { editingActivity = act }
+                                    )
+                                }
                             }
 
-                            items(activities) { act ->
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(14.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = act.activity?.name ?: "Aktivitas #${act.id}",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = Color(0xFF1F2937)
-                                            )
-                                            val executed = act.executed == true
-                                            Icon(
-                                                imageVector = if (executed) Icons.Default.CheckCircle
-                                                else Icons.Default.HourglassEmpty,
-                                                contentDescription = null,
-                                                tint = if (executed) Color(0xFF16A34A) else Color(0xFFD97706),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                            if (done.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = "Sudah Dikerjakan (${done.size})",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF16A34A),
+                                        modifier = Modifier.padding(top = 8.dp)
+                                    )
+                                }
 
-                                        act.activity?.type?.let {
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text(
-                                                text = it,
-                                                fontSize = 12.sp,
-                                                color = Color(0xFF9CA3AF)
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        act.reference?.let { InfoRow("Referensi", it) }
-                                        act.preInspection?.let { InfoRow("Pre Inspection", it) }
-                                        act.followUp?.let { InfoRow("Follow Up", it) }
-                                        act.finalResult?.let { InfoRow("Final Result", it) }
-                                        act.note?.let { InfoRow("Catatan", it) }
-
-                                        Spacer(modifier = Modifier.height(10.dp))
-
-                                        OutlinedButton(
-                                            onClick = { editingActivity = act },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(10.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Edit,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = if (act.executed == true) "Edit Hasil" else "Isi Hasil Inspeksi",
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
+                                items(done) { act ->
+                                    ActivityChecklistCard(
+                                        act = act,
+                                        enabled = detail!!.canExecute,
+                                        onClick = { editingActivity = act }
+                                    )
                                 }
                             }
                         }
@@ -444,6 +443,86 @@ fun InfoCard(
 }
 
 @Composable
+fun ActivityChecklistCard(
+    act: com.solu8i.cmms.data.model.WorkOrderActivityItem,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val executed = act.executed == true
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = act.name ?: act.activity?.name ?: "Aktivitas #${act.id}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937),
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = if (executed) Icons.Default.CheckCircle else Icons.Default.HourglassEmpty,
+                    contentDescription = null,
+                    tint = if (executed) Color(0xFF16A34A) else Color(0xFFD97706),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            act.activity?.type?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = it, fontSize = 12.sp, color = Color(0xFF9CA3AF))
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            act.reference?.let { InfoRow("Referensi", it) }
+            act.preInspection?.let { InfoRow("Pre Inspection", it) }
+            act.followUp?.let { InfoRow("Follow Up", it) }
+            act.finalResult?.let { InfoRow("Final Result", it) }
+            act.note?.let { InfoRow("Catatan", it) }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedButton(
+                onClick = onClick,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = when {
+                        !enabled -> "Belum dapat diisi"
+                        executed -> "Edit Hasil"
+                        else -> "Isi Hasil Inspeksi"
+                    },
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
@@ -471,6 +550,7 @@ fun InfoRow(label: String, value: String) {
 fun WorkOrderActions(
     status: String,
     isSubmitting: Boolean,
+    enabled: Boolean = true,
     onChangeStatus: (String) -> Unit
 ) {
     Card(
@@ -497,7 +577,7 @@ fun WorkOrderActions(
                 "Pending" -> Button(
                     onClick = { onChangeStatus("In Progress") },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSubmitting,
+                    enabled = !isSubmitting && enabled,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
                 ) {
@@ -510,7 +590,7 @@ fun WorkOrderActions(
                     Button(
                         onClick = { onChangeStatus("Completed") },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSubmitting,
+                        enabled = !isSubmitting && enabled,
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                     ) {
@@ -524,7 +604,7 @@ fun WorkOrderActions(
                     OutlinedButton(
                         onClick = { onChangeStatus("On Hold") },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSubmitting,
+                        enabled = !isSubmitting && enabled,
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text("Tunda Pekerjaan", color = Color(0xFFD97706))
@@ -534,7 +614,7 @@ fun WorkOrderActions(
                 "On Hold" -> Button(
                     onClick = { onChangeStatus("In Progress") },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSubmitting,
+                    enabled = !isSubmitting && enabled,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
                 ) {
@@ -567,8 +647,9 @@ fun WorkOrderActions(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ActivityResultDialog(
+fun ActivityResultScreen(
     activity: WorkOrderActivityItem,
     isSubmitting: Boolean,
     onDismiss: () -> Unit,
@@ -577,9 +658,9 @@ fun ActivityResultDialog(
 ) {
     val context = LocalContext.current
 
+    val reference = activity.reference ?: activity.activity?.reference
     var preInspection by remember(activity.id) { mutableStateOf(activity.preInspection ?: "") }
     var finalResult by remember(activity.id) { mutableStateOf(activity.finalResult ?: "") }
-    var followUp by remember(activity.id) { mutableStateOf(activity.followUp ?: "") }
     var note by remember(activity.id) { mutableStateOf(activity.note ?: "") }
     var executed by remember(activity.id) { mutableStateOf(activity.executed == true) }
 
@@ -672,27 +753,100 @@ fun ActivityResultDialog(
         )
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = activity.activity?.name ?: "Aktivitas #${activity.id}",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = activity.name ?: activity.activity?.name ?: "Aktivitas #${activity.id}",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss, enabled = !isSubmitting) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Kembali",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF015E4E),
+                    titleContentColor = Color.White
+                )
             )
         },
-        text = {
-            Column(
+        bottomBar = {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .background(Color.White)
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    enabled = !isSubmitting,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Batal", fontSize = 14.sp)
+                }
+                Button(
+                    onClick = {
+                        onSave(
+                            preInspection.takeIf { it.isNotBlank() },
+                            finalResult.takeIf { it.isNotBlank() },
+                            null,
+                            executed,
+                            note.takeIf { it.isNotBlank() },
+                            newPhotos
+                        )
+                    },
+                    enabled = !isSubmitting,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF015E4E))
+                ) {
+                    Text(
+                        if (isSubmitting) "Menyimpan..." else "Simpan",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF5F6FA))
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
                 activity.activity?.let { info ->
-                    val reference = listOfNotNull(info.type, info.unit).joinToString(" • ")
-                    if (reference.isNotBlank()) {
-                        Text(text = reference, fontSize = 11.sp, color = Color(0xFF9CA3AF))
+                    val meta = listOfNotNull(info.type, info.unit).joinToString(" • ")
+                    if (meta.isNotBlank()) {
+                        Text(text = meta, fontSize = 11.sp, color = Color(0xFF9CA3AF))
                     }
+                }
+
+                reference?.takeIf { it.isNotBlank() }?.let {
+                    OutlinedTextField(
+                        value = it,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Reference") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
                 }
 
                 OutlinedTextField(
@@ -711,14 +865,6 @@ fun ActivityResultDialog(
                             activity.activity?.unit?.let { "Final Result ($it)" } ?: "Final Result"
                         )
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = followUp,
-                    onValueChange = { if (it.length <= 100) followUp = it },
-                    label = { Text("Follow Up") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -797,31 +943,8 @@ fun ActivityResultDialog(
                         Text("Tambah Foto ($remainingSlots tersisa)", fontSize = 13.sp)
                     }
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onSave(
-                        preInspection.takeIf { it.isNotBlank() },
-                        finalResult.takeIf { it.isNotBlank() },
-                        followUp.takeIf { it.isNotBlank() },
-                        executed,
-                        note.takeIf { it.isNotBlank() },
-                        newPhotos
-                    )
-                },
-                enabled = !isSubmitting
-            ) {
-                Text(if (isSubmitting) "Menyimpan..." else "Simpan", color = Color(0xFF015E4E))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isSubmitting) {
-                Text("Batal", color = Color(0xFF6B7280))
-            }
         }
-    )
+    }
 }
 
 @Composable

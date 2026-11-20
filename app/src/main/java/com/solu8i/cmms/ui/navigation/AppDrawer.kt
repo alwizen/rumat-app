@@ -19,14 +19,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationBar
@@ -34,7 +40,12 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,7 +65,7 @@ val primaryGreen = Color(0xFF015E4E)
 val bottomNavItems = listOf(
     DrawerItem(Routes.DASHBOARD, "Home", Icons.Default.Home),
     DrawerItem(Routes.CALENDAR, "Kalender", Icons.Default.CalendarMonth),
-    DrawerItem(Routes.HISTORY, "Riwayat", Icons.Default.List),
+    DrawerItem(Routes.HISTORY, "Work Order", Icons.Default.List),
     DrawerItem(Routes.MAINTENANCE_REQUEST, "Request", Icons.Default.Assignment)
 )
 
@@ -98,23 +109,119 @@ fun BottomNavBar(
 
 val drawerItems = listOf(
     DrawerItem(Routes.DASHBOARD, "Dashboard", Icons.Default.Home),
-    DrawerItem(Routes.HISTORY, "Riwayat", Icons.Default.List),
+    DrawerItem(Routes.HISTORY, "Work Order", Icons.Default.List),
     DrawerItem(Routes.CALENDAR, "Kalender", Icons.Default.CalendarMonth),
     DrawerItem(Routes.EQUIPMENT, "Equipment", Icons.Default.Build),
-    DrawerItem(Routes.METER_LOG, "Meter Log", Icons.Default.Speed),
     DrawerItem(Routes.MAINTENANCE_REQUEST, "Request", Icons.Default.Assignment),
     DrawerItem(Routes.DOWNTIME, "Downtime", Icons.Default.Timer),
     DrawerItem(Routes.DOCUMENT, "Dokumen", Icons.Default.Description),
     DrawerItem(Routes.MY_TAB, "Profil", Icons.Default.Person)
 )
 
+/**
+ * Menu khusus untuk user dengan role housekeeping: petugas (`patra-jasa`)
+ * dan supervisor housekeeping (`spv_gos`). Keduanya hanya melihat modul
+ * housekeeping.
+ */
+val housekeepingDrawerItems = listOf(
+    DrawerItem(Routes.HOUSEKEEPING_DASHBOARD, "Dashboard", Icons.Default.Home),
+    DrawerItem(Routes.HOUSEKEEPING, "Housekeeping", Icons.Default.CleaningServices),
+    DrawerItem(Routes.MY_TAB, "Profil", Icons.Default.Person)
+)
+
+const val HOUSEKEEPING_ROLE = "patra-jasa"
+
+/** Supervisor housekeeping (General Office Services). */
+const val HOUSEKEEPING_SUPERVISOR_ROLE = "spv_gos"
+
+val HOUSEKEEPING_ROLES = listOf(HOUSEKEEPING_ROLE, HOUSEKEEPING_SUPERVISOR_ROLE)
+
+fun isHousekeepingRole(userRole: String?): Boolean {
+    return userRole
+        ?.split(",")
+        ?.map { it.trim() }
+        ?.any { it in HOUSEKEEPING_ROLES } == true
+}
+
+/**
+ * Hanya petugas housekeeping (`patra-jasa`) yang mengeksekusi checklist.
+ * SPV GOS membuat plan dan memverifikasi hasil pekerjaan.
+ */
+fun canExecuteHousekeeping(userRole: String?): Boolean {
+    return userRole
+        ?.split(",")
+        ?.map { it.trim() }
+        ?.any { it == HOUSEKEEPING_ROLE } == true
+}
+
+/** SPV GOS: pembuat plan & penyetuju laporan harian. */
+fun isHousekeepingSupervisor(userRole: String?): Boolean {
+    return userRole
+        ?.split(",")
+        ?.map { it.trim() }
+        ?.any { it == HOUSEKEEPING_SUPERVISOR_ROLE } == true
+}
+
+/**
+ * Menu khusus untuk user dengan role pengawas.
+ * Pengawas hanya memiliki 2 menu: Request Maintenance dan Request Housekeeping.
+ */
+val pengawasDrawerItems = listOf(
+    DrawerItem(Routes.MAINTENANCE_REQUEST, "Request Maintenance", Icons.Default.Assignment),
+    DrawerItem(Routes.HOUSEKEEPING_REQUEST, "Request Housekeeping", Icons.Default.CleaningServices)
+)
+
+const val PENGAWAS_ROLE = "pengawas"
+
+fun isPengawasRole(userRole: String?): Boolean {
+    return userRole
+        ?.split(",")
+        ?.map { it.trim() }
+        ?.any { it == PENGAWAS_ROLE } == true
+}
+
+fun drawerItemsForRole(userRole: String?): List<DrawerItem> {
+    return when {
+        isHousekeepingRole(userRole) -> housekeepingDrawerItems
+        isPengawasRole(userRole) -> pengawasDrawerItems
+        else -> drawerItems
+    }
+}
+
 @Composable
 fun AppDrawerContent(
     currentRoute: String?,
     userName: String?,
     userRole: String?,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    onLogout: () -> Unit = {}
 ) {
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Keluar", fontWeight = FontWeight.Bold) },
+            text = { Text("Apakah Anda yakin ingin keluar dari aplikasi?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutDialog = false
+                        onLogout()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                ) {
+                    Text("Keluar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Batal", color = Color(0xFF6B7280))
+                }
+            }
+        )
+    }
+
     ModalDrawerSheet(
         drawerContainerColor = Color.White,
         modifier = Modifier
@@ -138,7 +245,7 @@ fun AppDrawerContent(
                 modifier = Modifier.padding(start = 24.dp, bottom = 6.dp)
             )
 
-            drawerItems.forEach { item ->
+            drawerItemsForRole(userRole).forEach { item ->
                 val selected = currentRoute == item.route
 
                 NavigationDrawerItem(
@@ -170,14 +277,45 @@ fun AppDrawerContent(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-//            Text(
-//                text = "RUMAT • BY Solu8i Project ",
-//                fontSize = 10.sp,
-//                color = Color(0xFFD1D5DB),
-//                modifier = Modifier.padding(horizontal = 24.dp)
-//            )
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                color = Color(0xFFE5E7EB)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            NavigationDrawerItem(
+                label = {
+                    Text(
+                        text = "Keluar",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFDC2626)
+                    )
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = "Keluar",
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                selected = false,
+                onClick = {
+                    showLogoutDialog = true
+                },
+                colors = NavigationDrawerItemDefaults.colors(
+                    unselectedIconColor = Color(0xFFDC2626),
+                    unselectedTextColor = Color(0xFFDC2626)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

@@ -24,10 +24,6 @@ data class CalendarEvent(
     @SerializedName("classification") val classification: String?,
     @SerializedName("equipment_tag") val equipmentTag: String?,
     @SerializedName("equipment_type") val equipmentType: String?,
-    @SerializedName("plan_number") val planNumber: String?,
-    @SerializedName("schedule_number") val scheduleNumber: String?,
     @SerializedName("work_order_number") val workOrderNumber: String?,
     @SerializedName("description") val description: String?
-) {
-    val isWorkOrder: Boolean get() = type == "work_order"
-}
+)

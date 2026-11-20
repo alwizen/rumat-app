@@ -27,6 +27,7 @@ data class DocumentItem(
     @SerializedName("expiry_status") val expiryStatus: String?,
     @SerializedName("expiry_status_label") val expiryStatusLabel: String?,
     @SerializedName("file_url") val fileUrl: String?,
+    @SerializedName("file_name") val fileName: String?,
     @SerializedName("description") val description: String?,
     @SerializedName("uploaded_by") val uploadedBy: String?
 )
