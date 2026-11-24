@@ -70,6 +70,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.solu8i.cmms.ui.components.HousekeepingAreaMap
 import com.solu8i.cmms.ui.util.ImageFiles
 import com.solu8i.cmms.ui.viewmodel.HousekeepingRequestViewModel
 import java.text.SimpleDateFormat
@@ -438,6 +439,25 @@ fun HousekeepingRequestCreateScreen(
                     }) {
                         Text("Kosongkan fasilitas (berlaku seluruh area)", fontSize = 12.sp)
                     }
+                }
+            }
+
+            val selectedArea = areas.firstOrNull { it.id == selectedAreaId }
+            if (selectedArea != null && (selectedArea.polygon != null || facilities.isNotEmpty())) {
+                item {
+                    Text(
+                        text = "Peta Lokasi",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF015E4E)
+                    )
+                }
+
+                item {
+                    HousekeepingAreaMap(
+                        areaPolygon = selectedArea.polygon,
+                        facilities = facilities,
+                    )
                 }
             }
 

@@ -19,7 +19,6 @@ import com.solu8i.cmms.data.model.HousekeepingRequestActionResponse
 import com.solu8i.cmms.data.model.HousekeepingRequestCreateResponse
 import com.solu8i.cmms.data.model.HousekeepingRequestDetailResponse
 import com.solu8i.cmms.data.model.HousekeepingRequestListResponse
-import com.solu8i.cmms.data.model.HousekeepingPlanFacilityResponse
 import com.solu8i.cmms.data.model.HousekeepingTaskResponse
 import com.solu8i.cmms.data.model.LoginRequest
 import com.solu8i.cmms.data.model.LoginResponse
@@ -255,21 +254,21 @@ interface ApiService {
     ): Response<HousekeepingTaskResponse>
 
     @Multipart
-    @POST("housekeeping-plans/{planId}/facilities/{planFacilityId}/photos")
-    suspend fun uploadHousekeepingFacilityPhotos(
+    @POST("housekeeping-plans/{planId}/tasks/{taskId}/photos")
+    suspend fun uploadHousekeepingTaskPhotos(
         @Path("planId") planId: Int,
-        @Path("planFacilityId") planFacilityId: Int,
+        @Path("taskId") taskId: Int,
         @Part("type") type: RequestBody,
         @Part photos: List<MultipartBody.Part>
-    ): Response<HousekeepingPlanFacilityResponse>
+    ): Response<HousekeepingTaskResponse>
 
-    @DELETE("housekeeping-plans/{planId}/facilities/{planFacilityId}/photos")
-    suspend fun deleteHousekeepingFacilityPhoto(
+    @DELETE("housekeeping-plans/{planId}/tasks/{taskId}/photos")
+    suspend fun deleteHousekeepingTaskPhoto(
         @Path("planId") planId: Int,
-        @Path("planFacilityId") planFacilityId: Int,
+        @Path("taskId") taskId: Int,
         @Query("type") type: String,
         @Query("path") path: String
-    ): Response<HousekeepingPlanFacilityResponse>
+    ): Response<HousekeepingTaskResponse>
 
     /**
      * Unduh laporan harian housekeeping (PDF) untuk tanggal tertentu.

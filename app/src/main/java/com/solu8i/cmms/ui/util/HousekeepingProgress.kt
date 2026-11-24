@@ -58,29 +58,16 @@ object HousekeepingProgress {
         isOverdue == true || slaStatus == "Overdue"
 
     /**
-     * Item checklist hanya boleh dimulai setelah foto before fasilitas ada.
-     * Item tanpa fasilitas tidak dibatasi (backend juga tidak memblokir).
+     * Item checklist hanya boleh dimulai setelah foto before item checklist
+     * itu sendiri ada. Backend juga memblokir status In Progress tanpa foto.
      */
     fun canStartTask(status: String, hasBeforePhoto: Boolean): Boolean =
         status == "Pending" && hasBeforePhoto
 
     /**
-     * Checkbox hanya bisa dicentang setelah pekerjaan dimulai (In Progress).
-     * Status Done sudah final di aplikasi dan dipindahkan ke bawah daftar.
+     * Item checklist baru boleh diselesaikan setelah foto after item checklist
+     * itu sendiri diunggah. Backend juga memblokir status Done tanpa foto.
      */
-    fun canCheckTask(status: String): Boolean = status == "In Progress"
-
-    /**
-     * Tombol "Mulai Kerjakan" per card memerlukan foto before fasilitas
-     * dan minimal satu checklist yang masih Pending.
-     */
-    fun canStartAll(hasBeforePhoto: Boolean, hasPending: Boolean, isSubmitting: Boolean): Boolean =
-        ! isSubmitting && hasBeforePhoto && hasPending
-
-    /**
-     * Tombol "Selesaikan" baru aktif setelah foto after fasilitas diunggah
-     * dan ada checklist yang dicentang.
-     */
-    fun canFinishAll(hasAfterPhoto: Boolean, checkedCount: Int, isSubmitting: Boolean): Boolean =
-        ! isSubmitting && hasAfterPhoto && checkedCount > 0
+    fun canFinishTask(status: String, hasAfterPhoto: Boolean): Boolean =
+        status == "In Progress" && hasAfterPhoto
 }

@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.solu8i.cmms.data.model.HousekeepingPlanDetail
-import com.solu8i.cmms.data.model.HousekeepingPlanFacilityItem
 import com.solu8i.cmms.data.model.HousekeepingTaskItem
 import com.solu8i.cmms.data.remote.RetrofitInstance
 import com.solu8i.cmms.ui.util.ImageFiles
@@ -54,7 +53,7 @@ class HousekeepingDetailViewModel(application: Application) : AndroidViewModel(a
         }
     }
 
-    fun uploadFacilityPhotos(planId: Int, planFacility: HousekeepingPlanFacilityItem, type: String, uris: List<Uri>) {
+    fun uploadTaskPhotos(planId: Int, task: HousekeepingTaskItem, type: String, uris: List<Uri>) {
         if (uris.isEmpty()) {
             return
         }
@@ -81,9 +80,9 @@ class HousekeepingDetailViewModel(application: Application) : AndroidViewModel(a
             }
 
             try {
-                val response = RetrofitInstance.api.uploadHousekeepingFacilityPhotos(
+                val response = RetrofitInstance.api.uploadHousekeepingTaskPhotos(
                     planId = planId,
-                    planFacilityId = planFacility.id,
+                    taskId = task.id,
                     type = type.toRequestBody("text/plain".toMediaTypeOrNull()),
                     photos = parts
                 )
@@ -106,43 +105,28 @@ class HousekeepingDetailViewModel(application: Application) : AndroidViewModel(a
     }
 
     /**
-     * Mulai seluruh item checklist sekaligus (tombol "Mulai Kerja" per fasilitas).
-     * Hanya item berstatus Pending yang diubah menjadi In Progress.
+     * Mulai satu item checklist (tombol "Mulai" pada baris checklist).
+     * Backend mewajibkan foto before item checklist ini sudah diunggah.
      */
-    fun startTasks(planId: Int, tasks: List<HousekeepingTaskItem>) {
-        val pending = tasks.filter { it.status == "Pending" }
-
-        if (pending.isEmpty()) {
-            return
-        }
-
+    fun startTask(planId: Int, task: HousekeepingTaskItem) {
         viewModelScope.launch {
             _isSubmitting.value = true
             _errorMessage.value = null
 
             try {
-                var failure: String? = null
+                val response = RetrofitInstance.api.updateHousekeepingTask(
+                    planId = planId,
+                    taskId = task.id,
+                    body = mapOf("status" to "In Progress"),
+                )
 
-                for (task in pending) {
-                    val response = RetrofitInstance.api.updateHousekeepingTask(
-                        planId = planId,
-                        taskId = task.id,
-                        body = mapOf("status" to "In Progress"),
-                    )
-
-                    if (!response.isSuccessful) {
-                        failure = when (response.code()) {
-                            422 -> "Upload foto before fasilitas terlebih dahulu."
-                            else -> "Gagal memulai pekerjaan (${response.code()})"
-                        }
-                        break
-                    }
-                }
-
-                if (failure != null) {
-                    _errorMessage.value = failure
-                } else {
+                if (response.isSuccessful) {
                     _message.value = "Pekerjaan dimulai (In Progress)"
+                } else {
+                    _errorMessage.value = when (response.code()) {
+                        422 -> "Upload foto before item checklist terlebih dahulu."
+                        else -> "Gagal memulai pekerjaan (${response.code()})"
+                    }
                 }
 
                 refreshAfterChange(planId)
@@ -155,41 +139,28 @@ class HousekeepingDetailViewModel(application: Application) : AndroidViewModel(a
     }
 
     /**
-     * Selesaikan checklist yang dicentang sekaligus (tombol "Selesaikan").
-     * Backend mewajibkan foto after fasilitas sebelum status Done.
+     * Selesaikan satu item checklist (tombol "Selesaikan" pada baris checklist).
+     * Backend mewajibkan foto after item checklist ini sudah diunggah.
      */
-    fun finishTasks(planId: Int, tasks: List<HousekeepingTaskItem>) {
-        if (tasks.isEmpty()) {
-            return
-        }
-
+    fun finishTask(planId: Int, task: HousekeepingTaskItem) {
         viewModelScope.launch {
             _isSubmitting.value = true
             _errorMessage.value = null
 
             try {
-                var failure: String? = null
+                val response = RetrofitInstance.api.updateHousekeepingTask(
+                    planId = planId,
+                    taskId = task.id,
+                    body = mapOf("status" to "Done"),
+                )
 
-                for (task in tasks) {
-                    val response = RetrofitInstance.api.updateHousekeepingTask(
-                        planId = planId,
-                        taskId = task.id,
-                        body = mapOf("status" to "Done"),
-                    )
-
-                    if (!response.isSuccessful) {
-                        failure = when (response.code()) {
-                            422 -> "Upload foto after fasilitas terlebih dahulu."
-                            else -> "Gagal menyelesaikan pekerjaan (${response.code()})"
-                        }
-                        break
-                    }
-                }
-
-                if (failure != null) {
-                    _errorMessage.value = failure
-                } else {
+                if (response.isSuccessful) {
                     _message.value = "Pekerjaan selesai (Done)"
+                } else {
+                    _errorMessage.value = when (response.code()) {
+                        422 -> "Upload foto after item checklist terlebih dahulu."
+                        else -> "Gagal menyelesaikan pekerjaan (${response.code()})"
+                    }
                 }
 
                 refreshAfterChange(planId)
@@ -201,15 +172,15 @@ class HousekeepingDetailViewModel(application: Application) : AndroidViewModel(a
         }
     }
 
-    fun deleteFacilityPhoto(planId: Int, planFacility: HousekeepingPlanFacilityItem, type: String, path: String) {
+    fun deleteTaskPhoto(planId: Int, task: HousekeepingTaskItem, type: String, path: String) {
         viewModelScope.launch {
             _isSubmitting.value = true
             _errorMessage.value = null
 
             try {
-                val response = RetrofitInstance.api.deleteHousekeepingFacilityPhoto(
+                val response = RetrofitInstance.api.deleteHousekeepingTaskPhoto(
                     planId = planId,
-                    planFacilityId = planFacility.id,
+                    taskId = task.id,
                     type = type,
                     path = path
                 )

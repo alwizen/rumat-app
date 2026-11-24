@@ -43,7 +43,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -72,9 +71,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.solu8i.cmms.data.model.HousekeepingPlanDetail
-import com.solu8i.cmms.data.model.HousekeepingPlanFacilityItem
 import com.solu8i.cmms.data.model.HousekeepingTaskItem
 import com.solu8i.cmms.data.remote.RetrofitInstance
+import com.solu8i.cmms.ui.components.HousekeepingPolygonMap
 import com.solu8i.cmms.ui.util.HousekeepingFacilityTaskGroup
 import com.solu8i.cmms.ui.util.HousekeepingGrouping
 import com.solu8i.cmms.ui.util.HousekeepingProgress
@@ -96,24 +95,24 @@ fun HousekeepingDetailScreen(
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val message by viewModel.message.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    var photoDialog by remember { mutableStateOf<Pair<HousekeepingPlanFacilityItem, String>?>(null) }
+    var photoDialog by remember { mutableStateOf<Pair<HousekeepingTaskItem, String>?>(null) }
 
     LaunchedEffect(planId) {
         viewModel.loadDetail(planId)
     }
 
-    photoDialog?.let { (planFacility, type) ->
+    photoDialog?.let { (task, type) ->
         PhotoUploadDialog(
             title = if (type == "before") "Upload Foto Before" else "Upload Foto After",
-            existingPhotos = (if (type == "before") planFacility.photoBefore else planFacility.photoAfter).orEmpty(),
+            existingPhotos = (if (type == "before") task.photoBefore else task.photoAfter).orEmpty(),
             isSubmitting = isSubmitting,
             onDismiss = { photoDialog = null },
             onUpload = { uris ->
-                viewModel.uploadFacilityPhotos(planId, planFacility, type, uris)
+                viewModel.uploadTaskPhotos(planId, task, type, uris)
                 photoDialog = null
             },
             onDelete = { path ->
-                viewModel.deleteFacilityPhoto(planId, planFacility, type, path)
+                viewModel.deleteTaskPhoto(planId, task, type, path)
                 photoDialog = null
             }
         )
@@ -193,6 +192,37 @@ fun HousekeepingDetailScreen(
 
                     item { HousekeepingProgressCard(data) }
 
+                    val mapFacilities = data.tasks.orEmpty()
+                        .mapNotNull { it.facility }
+                        .distinctBy { it.id }
+
+                    if (data.area?.polygon != null || mapFacilities.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Peta Lokasi",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF015E4E)
+                            )
+                        }
+
+                        item {
+                            HousekeepingPolygonMap(
+                                areaPolygon = data.area?.polygon,
+                                facilityPolygons = mapFacilities.mapNotNull { it.polygon },
+                                facilityPoints = mapFacilities.mapNotNull { facility ->
+                                    val lat = facility.latitude
+                                    val lng = facility.longitude
+                                    if (facility.polygon.isNullOrEmpty() && lat != null && lng != null) {
+                                        lng to lat
+                                    } else {
+                                        null
+                                    }
+                                },
+                            )
+                        }
+                    }
+
                     item {
                         InfoCard("Informasi Plan") {
                             InfoRow("Nomor Plan", data.planNumber)
@@ -262,11 +292,8 @@ fun HousekeepingDetailScreen(
                         }
                     }
 
-                    // Satu card per fasilitas: checklist + dokumentasi foto jadi satu.
-                    val grouping = HousekeepingGrouping.group(
-                        tasks = data.tasks.orEmpty(),
-                        facilities = data.facilities.orEmpty(),
-                    )
+                    // Satu card per fasilitas: checklist + foto per item jadi satu.
+                    val grouping = HousekeepingGrouping.group(data.tasks.orEmpty())
                     val groups = grouping.groups
                     val looseTasks = grouping.looseTasks
 
@@ -291,20 +318,14 @@ fun HousekeepingDetailScreen(
                         }
                     }
 
-                    items(groups, key = { "facility-${it.key}" }) { group ->
+                    items(groups, key = { it.key }) { group ->
                         HousekeepingFacilityTaskCard(
                             group = group,
                             isSubmitting = isSubmitting,
                             canExecute = canExecute,
-                            onUploadPhoto = { type ->
-                                group.planFacility?.let { photoDialog = it to type }
-                            },
-                            onStartAll = { tasks ->
-                                viewModel.startTasks(planId, tasks)
-                            },
-                            onFinishChecked = { tasks ->
-                                viewModel.finishTasks(planId, tasks)
-                            }
+                            onUploadPhoto = { task, type -> photoDialog = task to type },
+                            onStart = { task -> viewModel.startTask(planId, task) },
+                            onFinish = { task -> viewModel.finishTask(planId, task) }
                         )
                     }
 
@@ -314,12 +335,9 @@ fun HousekeepingDetailScreen(
                                 tasks = looseTasks,
                                 isSubmitting = isSubmitting,
                                 canExecute = canExecute,
-                                onStartAll = { tasks ->
-                                    viewModel.startTasks(planId, tasks)
-                                },
-                                onFinishChecked = { tasks ->
-                                    viewModel.finishTasks(planId, tasks)
-                                }
+                                onUploadPhoto = { task, type -> photoDialog = task to type },
+                                onStart = { task -> viewModel.startTask(planId, task) },
+                                onFinish = { task -> viewModel.finishTask(planId, task) }
                             )
                         }
                     }
@@ -491,13 +509,13 @@ private fun HousekeepingProgressCard(plan: HousekeepingPlanDetail) {
 }
 
 /**
- * Satu card per fasilitas dengan alur kerja:
+ * Satu card per fasilitas. Setiap item checklist punya foto before/after
+ * sendiri dan tombol aksi sendiri:
  *
- *   1. Upload foto before fasilitas.
- *   2. Tekan "Mulai Kerjakan" → seluruh checklist Pending jadi In Progress.
- *   3. Centang checklist yang sudah dikerjakan (belum dikirim ke server).
- *   4. Upload foto after fasilitas.
- *   5. Tekan "Selesaikan" → checklist yang dicentang dikirim sebagai Done.
+ *   1. Upload foto before item checklist.
+ *   2. Tekan "Mulai" pada item -> status In Progress.
+ *   3. Upload foto after item checklist.
+ *   4. Tekan "Selesaikan" pada item -> status Done.
  *
  * Checklist berstatus Done diletakkan paling bawah.
  */
@@ -506,22 +524,13 @@ private fun HousekeepingFacilityTaskCard(
     group: HousekeepingFacilityTaskGroup,
     isSubmitting: Boolean,
     canExecute: Boolean,
-    onUploadPhoto: (String) -> Unit,
-    onStartAll: (List<HousekeepingTaskItem>) -> Unit,
-    onFinishChecked: (List<HousekeepingTaskItem>) -> Unit
+    onUploadPhoto: (HousekeepingTaskItem, String) -> Unit,
+    onStart: (HousekeepingTaskItem) -> Unit,
+    onFinish: (HousekeepingTaskItem) -> Unit
 ) {
     val done = group.tasks.count { it.status == "Done" }
     val total = group.tasks.size
-    val hasBeforePhoto = group.planFacility?.photoBefore.orEmpty().isNotEmpty()
-    val hasAfterPhoto = group.planFacility?.photoAfter.orEmpty().isNotEmpty()
-    val hasPending = group.tasks.any { it.status == "Pending" }
-    val hasInProgress = group.tasks.any { it.status == "In Progress" }
-
-    // Checklist yang dicentang pengguna, menunggu tombol "Selesaikan".
-    var checkedIds by remember(group.tasks) { mutableStateOf<Set<Int>>(emptySet()) }
-
     val orderedTasks = group.tasks.sortedBy { if (it.status == "Done") 1 else 0 }
-    val checkedInProgress = orderedTasks.filter { it.status == "In Progress" && it.id in checkedIds }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -561,117 +570,21 @@ private fun HousekeepingFacilityTaskCard(
                 }
             }
 
-            if (group.tasks.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider(color = Color(0xFFE5E7EB))
-
-                orderedTasks.forEach { task ->
-                    HousekeepingTaskCheckboxRow(
-                        task = task,
-                        isSubmitting = isSubmitting,
-                        canExecute = canExecute,
-                        checked = task.id in checkedIds,
-                        onCheckedChange = { checked ->
-                            checkedIds = if (checked) checkedIds + task.id else checkedIds - task.id
-                        }
-                    )
-                }
-
-                // Langkah 2: mulai seluruh checklist sekaligus.
-                if (hasPending) {
+            orderedTasks.forEachIndexed { index, task ->
+                if (index == 0) {
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    Button(
-                        onClick = { onStartAll(group.tasks) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = canExecute && HousekeepingProgress.canStartAll(
-                            hasBeforePhoto = group.planFacility == null || hasBeforePhoto,
-                            hasPending = hasPending,
-                            isSubmitting = isSubmitting,
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
-                    ) {
-                        Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Mulai Kerjakan")
-                    }
-
-                    if (group.planFacility != null && !hasBeforePhoto) {
-                        Text(
-                            text = "Upload foto before fasilitas di bawah terlebih dahulu.",
-                            fontSize = 11.sp,
-                            color = Color(0xFFB91C1C),
-                            modifier = Modifier.padding(top = 6.dp)
-                        )
-                    }
+                    HorizontalDivider(color = Color(0xFFE5E7EB))
+                } else {
+                    HorizontalDivider(color = Color(0xFFF3F4F6))
                 }
 
-                // Langkah 5: selesaikan checklist yang dicentang.
-                if (hasInProgress) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Button(
-                        onClick = {
-                            onFinishChecked(checkedInProgress)
-                            checkedIds = emptySet()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = canExecute && HousekeepingProgress.canFinishAll(
-                            hasAfterPhoto = group.planFacility == null || hasAfterPhoto,
-                            checkedCount = checkedInProgress.size,
-                            isSubmitting = isSubmitting,
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
-                    ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            if (checkedInProgress.isEmpty()) {
-                                "Selesaikan"
-                            } else {
-                                "Selesaikan (${checkedInProgress.size})"
-                            }
-                        )
-                    }
-
-                    if (checkedInProgress.isNotEmpty() && group.planFacility != null && !hasAfterPhoto) {
-                        Text(
-                            text = "Upload foto after fasilitas di bawah terlebih dahulu.",
-                            fontSize = 11.sp,
-                            color = Color(0xFFB91C1C),
-                            modifier = Modifier.padding(top = 6.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = Color(0xFFE5E7EB))
-            Spacer(modifier = Modifier.height(10.dp))
-
-            if (group.planFacility == null) {
-                Text(
-                    "Dokumentasi foto belum tersedia untuk fasilitas ini.",
-                    fontSize = 11.sp,
-                    color = Color(0xFF9CA3AF)
-                )
-            } else {
-                PhotoSection(
-                    label = "Foto Before",
-                    photos = group.planFacility.photoBefore.orEmpty(),
-                    onAdd = { onUploadPhoto("before") },
-                    addEnabled = !isSubmitting && canExecute
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                PhotoSection(
-                    label = "Foto After",
-                    photos = group.planFacility.photoAfter.orEmpty(),
-                    onAdd = { onUploadPhoto("after") },
-                    addEnabled = !isSubmitting && canExecute
+                HousekeepingTaskRow(
+                    task = task,
+                    isSubmitting = isSubmitting,
+                    canExecute = canExecute,
+                    onUploadPhoto = onUploadPhoto,
+                    onStart = onStart,
+                    onFinish = onFinish,
                 )
             }
         }
@@ -680,23 +593,18 @@ private fun HousekeepingFacilityTaskCard(
 
 /**
  * Card untuk checklist yang tidak terhubung ke fasilitas tertentu.
- * Tidak ada dokumentasi foto pada card ini (foto hanya di level fasilitas).
+ * Foto before/after tetap melekat pada tiap item checklist.
  */
 @Composable
 private fun HousekeepingLooseTasksCard(
     tasks: List<HousekeepingTaskItem>,
     isSubmitting: Boolean,
     canExecute: Boolean,
-    onStartAll: (List<HousekeepingTaskItem>) -> Unit,
-    onFinishChecked: (List<HousekeepingTaskItem>) -> Unit
+    onUploadPhoto: (HousekeepingTaskItem, String) -> Unit,
+    onStart: (HousekeepingTaskItem) -> Unit,
+    onFinish: (HousekeepingTaskItem) -> Unit
 ) {
-    val hasPending = tasks.any { it.status == "Pending" }
-    val hasInProgress = tasks.any { it.status == "In Progress" }
-
-    var checkedIds by remember(tasks) { mutableStateOf<Set<Int>>(emptySet()) }
-
     val orderedTasks = tasks.sortedBy { if (it.status == "Done") 1 else 0 }
-    val checkedInProgress = orderedTasks.filter { it.status == "In Progress" && it.id in checkedIds }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -712,78 +620,42 @@ private fun HousekeepingLooseTasksCard(
                 color = Color(0xFF1F2937)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = Color(0xFFE5E7EB))
+            orderedTasks.forEachIndexed { index, task ->
+                if (index == 0) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = Color(0xFFE5E7EB))
+                } else {
+                    HorizontalDivider(color = Color(0xFFF3F4F6))
+                }
 
-            orderedTasks.forEach { task ->
-                HousekeepingTaskCheckboxRow(
+                HousekeepingTaskRow(
                     task = task,
                     isSubmitting = isSubmitting,
                     canExecute = canExecute,
-                    checked = task.id in checkedIds,
-                    onCheckedChange = { checked ->
-                        checkedIds = if (checked) checkedIds + task.id else checkedIds - task.id
-                    }
+                    onUploadPhoto = onUploadPhoto,
+                    onStart = onStart,
+                    onFinish = onFinish,
                 )
-            }
-
-            if (hasPending) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    onClick = { onStartAll(tasks) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = canExecute && !isSubmitting,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
-                ) {
-                    Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Mulai Kerjakan")
-                }
-            }
-
-            if (hasInProgress) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    onClick = {
-                        onFinishChecked(checkedInProgress)
-                        checkedIds = emptySet()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = canExecute && !isSubmitting && checkedInProgress.isNotEmpty(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
-                ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        if (checkedInProgress.isEmpty()) {
-                            "Selesaikan"
-                        } else {
-                            "Selesaikan (${checkedInProgress.size})"
-                        }
-                    )
-                }
             }
         }
     }
 }
 
 /**
- * Baris checklist dengan checkbox:
- * - Pending   : checkbox nonaktif (pekerjaan belum dimulai).
- * - In Progress: checkbox bisa dicentang, lalu tekan "Selesaikan".
- * - Done      : sudah final, tercentang, dan dipindahkan ke bawah.
+ * Satu baris item checklist beserta foto before/after miliknya.
+ * - Pending     : tombol "Mulai" aktif setelah foto before item ini ada.
+ * - In Progress : tombol "Selesaikan" aktif setelah foto after item ini ada.
+ * - Done        : tidak ada tombol aksi, item dipindahkan ke bawah daftar.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HousekeepingTaskCheckboxRow(
+private fun HousekeepingTaskRow(
     task: HousekeepingTaskItem,
     isSubmitting: Boolean,
     canExecute: Boolean,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onUploadPhoto: (HousekeepingTaskItem, String) -> Unit,
+    onStart: (HousekeepingTaskItem) -> Unit,
+    onFinish: (HousekeepingTaskItem) -> Unit
 ) {
     val isDone = task.status == "Done"
     val statusColor = when (task.status) {
@@ -791,30 +663,94 @@ private fun HousekeepingTaskCheckboxRow(
         "In Progress" -> Color(0xFFD97706)
         else -> Color(0xFF6B7280)
     }
+    val hasBeforePhoto = task.photoBefore.orEmpty().isNotEmpty()
+    val hasAfterPhoto = task.photoAfter.orEmpty().isNotEmpty()
+    val canEditPhotos = canExecute && !isSubmitting
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Checkbox(
-            checked = isDone || checked,
-            enabled = canExecute && !isSubmitting && HousekeepingProgress.canCheckTask(task.status),
-            onCheckedChange = { value -> onCheckedChange(value) },
-        )
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = task.name,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isDone) Color(0xFF9CA3AF) else Color(0xFF1F2937)
+                )
+                Text(
+                    text = task.status,
+                    fontSize = 11.sp,
+                    color = statusColor
+                )
+            }
 
-        Column(modifier = Modifier.weight(1f)) {
+            when (task.status) {
+                "Pending" -> Button(
+                    onClick = { onStart(task) },
+                    enabled = canExecute && !isSubmitting &&
+                        HousekeepingProgress.canStartTask(task.status, hasBeforePhoto),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                ) {
+                    Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Mulai", fontSize = 12.sp)
+                }
+
+                "In Progress" -> Button(
+                    onClick = { onFinish(task) },
+                    enabled = canExecute && !isSubmitting &&
+                        HousekeepingProgress.canFinishTask(task.status, hasAfterPhoto),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Selesaikan", fontSize = 12.sp)
+                }
+            }
+        }
+
+        if (task.status == "Pending" && !hasBeforePhoto) {
             Text(
-                text = task.name,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (isDone) Color(0xFF9CA3AF) else Color(0xFF1F2937)
-            )
-            Text(
-                text = task.status,
+                text = "Upload foto before item checklist ini terlebih dahulu.",
                 fontSize = 11.sp,
-                color = statusColor
+                color = Color(0xFFB91C1C),
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
+
+        if (task.status == "In Progress" && !hasAfterPhoto) {
+            Text(
+                text = "Upload foto after item checklist ini terlebih dahulu.",
+                fontSize = 11.sp,
+                color = Color(0xFFB91C1C),
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        PhotoSection(
+            label = "Foto Before",
+            photos = task.photoBefore.orEmpty(),
+            onAdd = { onUploadPhoto(task, "before") },
+            addEnabled = canEditPhotos
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        PhotoSection(
+            label = "Foto After",
+            photos = task.photoAfter.orEmpty(),
+            onAdd = { onUploadPhoto(task, "after") },
+            addEnabled = canEditPhotos
+        )
     }
 }
 

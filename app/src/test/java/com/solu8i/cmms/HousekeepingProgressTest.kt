@@ -52,7 +52,7 @@ class HousekeepingProgressTest {
     }
 
     @Test
-    fun taskRequiresFacilityBeforePhotoToStart() {
+    fun taskRequiresItsOwnBeforePhotoToStart() {
         assertFalse(HousekeepingProgress.canStartTask("Pending", false))
         assertTrue(HousekeepingProgress.canStartTask("Pending", true))
         assertFalse(HousekeepingProgress.canStartTask("Done", true))
@@ -60,26 +60,11 @@ class HousekeepingProgressTest {
     }
 
     @Test
-    fun checkboxOnlyActiveForInProgressTasks() {
-        assertFalse(HousekeepingProgress.canCheckTask("Pending"))
-        assertTrue(HousekeepingProgress.canCheckTask("In Progress"))
-        assertFalse(HousekeepingProgress.canCheckTask("Done"))
-    }
-
-    @Test
-    fun startAllRequiresBeforePhotoAndPendingTasks() {
-        assertTrue(HousekeepingProgress.canStartAll(hasBeforePhoto = true, hasPending = true, isSubmitting = false))
-        assertFalse(HousekeepingProgress.canStartAll(hasBeforePhoto = false, hasPending = true, isSubmitting = false))
-        assertFalse(HousekeepingProgress.canStartAll(hasBeforePhoto = true, hasPending = false, isSubmitting = false))
-        assertFalse(HousekeepingProgress.canStartAll(hasBeforePhoto = true, hasPending = true, isSubmitting = true))
-    }
-
-    @Test
-    fun finishAllRequiresAfterPhotoAndCheckedTasks() {
-        assertTrue(HousekeepingProgress.canFinishAll(hasAfterPhoto = true, checkedCount = 1, isSubmitting = false))
-        assertFalse(HousekeepingProgress.canFinishAll(hasAfterPhoto = false, checkedCount = 1, isSubmitting = false))
-        assertFalse(HousekeepingProgress.canFinishAll(hasAfterPhoto = true, checkedCount = 0, isSubmitting = false))
-        assertFalse(HousekeepingProgress.canFinishAll(hasAfterPhoto = true, checkedCount = 2, isSubmitting = true))
+    fun taskRequiresItsOwnAfterPhotoToFinish() {
+        assertFalse(HousekeepingProgress.canFinishTask("In Progress", false))
+        assertTrue(HousekeepingProgress.canFinishTask("In Progress", true))
+        assertFalse(HousekeepingProgress.canFinishTask("Pending", true))
+        assertFalse(HousekeepingProgress.canFinishTask("Done", true))
     }
 
     @Test

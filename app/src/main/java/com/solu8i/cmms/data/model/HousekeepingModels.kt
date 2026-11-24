@@ -66,7 +66,6 @@ data class HousekeepingPlanDetail(
     @SerializedName("created_by") val createdBy: String?,
     @SerializedName("area") val area: HousekeepingAreaDetail?,
     @SerializedName("manpowers") val manpowers: List<HousekeepingManpowerItem>?,
-    @SerializedName("facilities") val facilities: List<HousekeepingPlanFacilityItem>? = null,
     @SerializedName("tasks") val tasks: List<HousekeepingTaskItem>?
 )
 
@@ -77,7 +76,9 @@ data class HousekeepingAreaDetail(
     @SerializedName("company") val company: String?,
     @SerializedName("supervisor") val supervisor: String?,
     @SerializedName("area_size") val areaSize: Double?,
-    @SerializedName("sla_days") val slaDays: Int? = null
+    @SerializedName("sla_days") val slaDays: Int? = null,
+    /** Batas area dalam format [[lat, lng], ...]. */
+    @SerializedName("polygon") val polygon: List<List<Double>>? = null
 )
 
 data class HousekeepingManpowerItem(
@@ -88,38 +89,31 @@ data class HousekeepingManpowerItem(
     @SerializedName("note") val note: String?
 )
 
+/**
+ * Satu item checklist. Foto before/after menempel pada item checklist ini,
+ * bukan pada level fasilitas.
+ */
 data class HousekeepingTaskItem(
     @SerializedName("id") val id: Int,
     @SerializedName("name") val name: String,
     @SerializedName("status") val status: String,
     @SerializedName("note") val note: String?,
+    @SerializedName("photo_before") val photoBefore: List<String>? = null,
+    @SerializedName("photo_after") val photoAfter: List<String>? = null,
     @SerializedName("started_at") val startedAt: String?,
     @SerializedName("completed_at") val completedAt: String?,
     @SerializedName("facility") val facility: HousekeepingFacilityBrief?,
     @SerializedName("master_task") val masterTask: HousekeepingMasterTaskBrief?
 )
 
-/**
- * Dokumentasi foto per fasilitas pada satu plan.
- * Foto before/after dikelola di level fasilitas, bukan per item checklist.
- */
-data class HousekeepingPlanFacilityItem(
-    @SerializedName("id") val id: Int,
-    @SerializedName("facility") val facility: HousekeepingFacilityBrief?,
-    @SerializedName("photo_before") val photoBefore: List<String>? = null,
-    @SerializedName("photo_after") val photoAfter: List<String>? = null
-)
-
-data class HousekeepingPlanFacilityResponse(
-    @SerializedName("success") val success: Boolean,
-    @SerializedName("message") val message: String?,
-    @SerializedName("data") val data: HousekeepingPlanFacilityItem?
-)
-
 data class HousekeepingFacilityBrief(
     @SerializedName("id") val id: Int,
     @SerializedName("name") val name: String,
-    @SerializedName("code") val code: String?
+    @SerializedName("code") val code: String?,
+    /** Batas fasilitas dalam format [[lat, lng], ...]. */
+    @SerializedName("polygon") val polygon: List<List<Double>>? = null,
+    @SerializedName("latitude") val latitude: Double? = null,
+    @SerializedName("longitude") val longitude: Double? = null
 )
 
 data class HousekeepingMasterTaskBrief(
@@ -145,7 +139,11 @@ data class HousekeepingAreaSimple(
     @SerializedName("company") val company: String?,
     @SerializedName("area_size") val areaSize: Double?,
     @SerializedName("sla_days") val slaDays: Int? = null,
-    @SerializedName("supervisor") val supervisor: String?
+    @SerializedName("supervisor") val supervisor: String?,
+    /** Batas area dalam format [[lat, lng], ...]. */
+    @SerializedName("polygon") val polygon: List<List<Double>>? = null,
+    @SerializedName("latitude") val latitude: Double? = null,
+    @SerializedName("longitude") val longitude: Double? = null
 )
 
 data class HousekeepingManpowerListResponse(
@@ -169,7 +167,12 @@ data class HousekeepingFacilityWithTasks(
     @SerializedName("id") val id: Int,
     @SerializedName("name") val name: String,
     @SerializedName("code") val code: String?,
-    @SerializedName("tasks") val tasks: List<HousekeepingMasterTaskBrief>
+    @SerializedName("tasks") val tasks: List<HousekeepingMasterTaskBrief>,
+    /** Batas fasilitas dalam format [[lat, lng], ...]. */
+    @SerializedName("polygon") val polygon: List<List<Double>>? = null,
+    @SerializedName("area_size") val areaSize: Double? = null,
+    @SerializedName("latitude") val latitude: Double? = null,
+    @SerializedName("longitude") val longitude: Double? = null
 )
 
 data class SimpleActionResponse(
