@@ -65,7 +65,7 @@ fun MyTabScreen(
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             title = { Text("Konfirmasi Logout") },
-            text = { Text("Apakah Anda yakin ingin keluar dari akun?") },
+            text = { Text("Apakah Anda yakin ingin keluar dari aplikasi?") },
             confirmButton = {
                 TextButton(onClick = {
                     showLogoutDialog = false

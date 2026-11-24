@@ -16,12 +16,20 @@ data class WorkOrderDetail(
     @SerializedName("finish_at") val finishAt: String?,
     @SerializedName("note") val note: String?,
     @SerializedName("status") val status: String,
+    @SerializedName("can_execute") val canExecute: Boolean = true,
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("equipment") val equipment: EquipmentDetail?,
     @SerializedName("issued_by") val issuedBy: UserBrief?,
     @SerializedName("technician_coordinator") val technicianCoordinator: UserBrief?,
+    @SerializedName("maintenance_request") val maintenanceRequest: MaintenanceRequestBrief? = null,
     @SerializedName("activities") val activities: List<WorkOrderActivityItem>?,
     @SerializedName("workers") val workers: List<WorkOrderWorkerItem>?
+)
+
+data class MaintenanceRequestBrief(
+    @SerializedName("id") val id: Int,
+    @SerializedName("request_number") val requestNumber: String?,
+    @SerializedName("status") val status: String?
 )
 
 data class EquipmentDetail(
@@ -43,6 +51,7 @@ data class UserBrief(
 
 data class WorkOrderActivityItem(
     @SerializedName("id") val id: Int,
+    @SerializedName("name") val name: String?,
     @SerializedName("reference") val reference: String?,
     @SerializedName("pre_inspection") val preInspection: String?,
     @SerializedName("follow_up") val followUp: String?,

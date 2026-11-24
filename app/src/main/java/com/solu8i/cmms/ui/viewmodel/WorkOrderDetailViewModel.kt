@@ -246,4 +246,10 @@ class WorkOrderDetailViewModel(application: Application) : AndroidViewModel(appl
 
     private fun nowForApi(): String =
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+
+    fun reset() {
+        _detail.value = null
+        _message.value = null
+        _errorMessage.value = null
+    }
 }

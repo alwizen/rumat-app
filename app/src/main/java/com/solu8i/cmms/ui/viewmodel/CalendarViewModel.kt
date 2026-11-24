@@ -126,4 +126,10 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
+
+    fun reset() {
+        _events.value = emptyList()
+        _errorMessage.value = null
+        _isLoading.value = false
+    }
 }

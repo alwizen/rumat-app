@@ -75,10 +75,11 @@ import coil.compose.AsyncImage
 import com.solu8i.cmms.ui.viewmodel.MaintenanceRequestViewModel
 import java.io.File
 
+private const val MAX_PHOTOS = 5
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun MaintenanceRequestCreateScreen(
-    viewModel: MaintenanceRequestViewModel,
+fun MaintenanceRequestCreateScreen(    viewModel: MaintenanceRequestViewModel,
     onBack: () -> Unit,
     onSuccess: () -> Unit
 ) {
@@ -87,7 +88,11 @@ fun MaintenanceRequestCreateScreen(
     val isCreating by viewModel.isCreating.collectAsState()
     val createSuccess by viewModel.createSuccess.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val maxPhotos = MAX_PHOTOS
 
+    var selectedAreaId by remember { mutableStateOf<Int?>(null) }
+    var selectedAreaName by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf("") }
     var selectedEquipmentId by remember { mutableStateOf<Int?>(null) }
     var selectedEquipmentName by remember { mutableStateOf("") }
     var operationStatus by remember { mutableStateOf("") }
@@ -99,6 +104,8 @@ fun MaintenanceRequestCreateScreen(
     var earlyAction by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("Open") }
     var selectedPhotos by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var areaExpanded by remember { mutableStateOf(false) }
+    var typeExpanded by remember { mutableStateOf(false) }
     var equipmentExpanded by remember { mutableStateOf(false) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -106,18 +113,20 @@ fun MaintenanceRequestCreateScreen(
     var showConfirmDialog by remember { mutableStateOf(false) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 5)
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = MAX_PHOTOS)
     ) { uris: List<Uri> ->
-        selectedPhotos = selectedPhotos + uris
+        selectedPhotos = (selectedPhotos + uris).take(MAX_PHOTOS)
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
         bitmap?.let {
-            val uri = bitmapToUri(context, it)
-            if (uri != null) {
-                selectedPhotos = selectedPhotos + uri
+            if (selectedPhotos.size < MAX_PHOTOS) {
+                val uri = bitmapToUri(context, it)
+                if (uri != null) {
+                    selectedPhotos = (selectedPhotos + uri).take(MAX_PHOTOS)
+                }
             }
         }
     }
@@ -285,6 +294,27 @@ fun MaintenanceRequestCreateScreen(
     val conditions = listOf("Good", "Fair", "Poor", "Critical")
     val impacts = listOf("Low", "Medium", "High", "Critical")
 
+    val areaOptions = remember(equipmentList) {
+        equipmentList
+            .mapNotNull { eq -> eq.area?.let { it.id to it.name } }
+            .distinctBy { it.first }
+            .sortedBy { it.second }
+    }
+
+    val equipmentInArea = remember(equipmentList, selectedAreaId) {
+        if (selectedAreaId == null) emptyList()
+        else equipmentList.filter { it.area?.id == selectedAreaId }
+    }
+
+    val typeOptions = remember(equipmentInArea) {
+        equipmentInArea.mapNotNull { it.equipmentType }.distinct().sorted()
+    }
+
+    val equipmentInType = remember(equipmentInArea, selectedType) {
+        if (selectedType.isBlank()) emptyList()
+        else equipmentInArea.filter { it.equipmentType == selectedType }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -331,14 +361,101 @@ fun MaintenanceRequestCreateScreen(
 
             item {
                 ExposedDropdownMenuBox(
+                    expanded = areaExpanded,
+                    onExpandedChange = { areaExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedAreaName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Pilih Area") },
+                        placeholder = { Text("Area") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = areaExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
+                        )
+                    )
+                    ExposedDropdownMenu(
+                        expanded = areaExpanded,
+                        onDismissRequest = { areaExpanded = false }
+                    ) {
+                        areaOptions.forEach { (id, name) ->
+                            DropdownMenuItem(
+                                text = { Text(name) },
+                                onClick = {
+                                    selectedAreaId = id
+                                    selectedAreaName = name
+                                    selectedType = ""
+                                    selectedEquipmentId = null
+                                    selectedEquipmentName = ""
+                                    areaExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                ExposedDropdownMenuBox(
+                    expanded = typeExpanded,
+                    onExpandedChange = {
+                        if (selectedAreaId != null) typeExpanded = it
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = selectedType,
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = selectedAreaId != null,
+                        label = { Text("Pilih Tipe Equipment") },
+                        placeholder = { Text(if (selectedAreaId == null) "Pilih area dulu" else "Tipe") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
+                        )
+                    )
+                    ExposedDropdownMenu(
+                        expanded = typeExpanded,
+                        onDismissRequest = { typeExpanded = false }
+                    ) {
+                        typeOptions.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type) },
+                                onClick = {
+                                    selectedType = type
+                                    selectedEquipmentId = null
+                                    selectedEquipmentName = ""
+                                    typeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                ExposedDropdownMenuBox(
                     expanded = equipmentExpanded,
-                    onExpandedChange = { equipmentExpanded = it }
+                    onExpandedChange = {
+                        if (selectedType.isNotBlank()) equipmentExpanded = it
+                    }
                 ) {
                     OutlinedTextField(
                         value = selectedEquipmentName,
                         onValueChange = {},
                         readOnly = true,
+                        enabled = selectedType.isNotBlank(),
                         label = { Text("Pilih Equipment") },
+                        placeholder = { Text(if (selectedType.isBlank()) "Pilih tipe dulu" else "Equipment") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = equipmentExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -352,12 +469,12 @@ fun MaintenanceRequestCreateScreen(
                         expanded = equipmentExpanded,
                         onDismissRequest = { equipmentExpanded = false }
                     ) {
-                        equipmentList.forEach { eq ->
+                        equipmentInType.forEach { eq ->
                             DropdownMenuItem(
-                                text = { Text("${eq.tagNumber} - ${eq.equipmentType}") },
+                                text = { Text("${eq.tagNumber} - ${eq.description ?: eq.equipmentType ?: ""}") },
                                 onClick = {
                                     selectedEquipmentId = eq.id
-                                    selectedEquipmentName = "${eq.tagNumber} - ${eq.equipmentType}"
+                                    selectedEquipmentName = "${eq.tagNumber} - ${eq.description ?: eq.equipmentType ?: ""}"
                                     equipmentExpanded = false
                                 }
                             )
@@ -503,22 +620,10 @@ fun MaintenanceRequestCreateScreen(
                 }
             }
 
-            item {
-                OutlinedTextField(
-                    value = earlyAction,
-                    onValueChange = { earlyAction = it },
-                    label = { Text("Tindakan Awal") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
-                    )
-                )
-            }
-
+          
             item {
                 Text(
-                    text = "Foto (${selectedPhotos.size}/5)",
+                    text = "Foto (${selectedPhotos.size}/$maxPhotos)",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF015E4E)
@@ -527,7 +632,18 @@ fun MaintenanceRequestCreateScreen(
 
             item {
                 Button(
-                    onClick = { showImageSourceDialog = true },
+                    onClick = {
+                        if (selectedPhotos.size >= maxPhotos) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Maksimal $maxPhotos foto",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            showImageSourceDialog = true
+                        }
+                    },
+                    enabled = selectedPhotos.size < maxPhotos,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF015E4E)),
                     shape = RoundedCornerShape(8.dp)
                 ) {

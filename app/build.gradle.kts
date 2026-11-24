@@ -20,10 +20,18 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("boolean", "LOG_HTTP_BODY", "true")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT", "true")
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
             optimization {
                 enable = false
             }
+            buildConfigField("boolean", "LOG_HTTP_BODY", "false")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT", "false")
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
         }
     }
     compileOptions {
@@ -32,6 +40,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -53,6 +62,7 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
+    implementation(libs.maplibre.compose)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

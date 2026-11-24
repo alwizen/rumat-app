@@ -148,9 +148,6 @@ fun CalendarScreen(
                             isToday = cell.isToday,
                             isSelected = selectedDate == cell.key,
                             hasEvents = eventsByDate.containsKey(cell.key),
-                            hasWorkOrder = eventsByDate[cell.key]
-                                .orEmpty()
-                                .any { it.isWorkOrder },
                             onClick = { viewModel.selectDate(cell.key) }
                         )
                     }
@@ -277,7 +274,6 @@ private fun DayCell(
     isToday: Boolean,
     isSelected: Boolean,
     hasEvents: Boolean,
-    hasWorkOrder: Boolean,
     onClick: () -> Unit
 ) {
     val background = when {
@@ -315,17 +311,6 @@ private fun DayCell(
                         modifier = Modifier
                             .size(5.dp)
                             .background(
-                                if (isSelected) Color.White else Color(0xFFD97706),
-                                CircleShape
-                            )
-                    )
-                }
-
-                if (hasWorkOrder) {
-                    Box(
-                        modifier = Modifier
-                            .size(5.dp)
-                            .background(
                                 if (isSelected) Color.White else Color(0xFF2563EB),
                                 CircleShape
                             )
@@ -338,7 +323,7 @@ private fun DayCell(
 
 @Composable
 private fun EventCard(event: CalendarEvent) {
-    val statusColor = statusColor(event.status, event.isWorkOrder)
+    val statusColor = statusColor(event.status)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -393,8 +378,8 @@ private fun EventCard(event: CalendarEvent) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Badge(
-                        text = if (event.isWorkOrder) "Work Order" else "Jadwal",
-                        color = if (event.isWorkOrder) Color(0xFF2563EB) else Color(0xFFD97706)
+                        text = "Work Order",
+                        color = Color(0xFF2563EB)
                     )
 
                     event.status?.let {
@@ -457,11 +442,7 @@ private fun EmptyCard(message: String) {
     }
 }
 
-private fun statusColor(status: String?, isWorkOrder: Boolean): Color {
-    if (!isWorkOrder) {
-        return Color(0xFFD97706)
-    }
-
+private fun statusColor(status: String?): Color {
     return when (status) {
         "Completed" -> Color(0xFF16A34A)
         "In Progress" -> Color(0xFF2563EB)

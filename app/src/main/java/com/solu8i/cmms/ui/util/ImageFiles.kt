@@ -23,12 +23,7 @@ object ImageFiles {
      */
     fun fromUri(context: Context, uri: Uri): File? {
         return try {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-
-            val bitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream.close()
-
-            if (bitmap == null) return null
+            val bitmap = decodeSampled(context, uri) ?: return null
 
             val scaled = scaleDown(bitmap)
 
@@ -52,6 +47,39 @@ object ImageFiles {
         } catch (_: Exception) {
             null
         }
+    }
+
+    /**
+     * Decode gambar dengan inSampleSize agar tidak menghabiskan memori
+     * sebelum diperkecil ke MAX_DIMENSION.
+     */
+    private fun decodeSampled(context: Context, uri: Uri): Bitmap? {
+        val resolver = context.contentResolver
+
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            return null
+        }
+
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight)
+        }
+
+        return resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+    }
+
+    private fun calculateSampleSize(width: Int, height: Int): Int {
+        var sample = 1
+        var largest = maxOf(width, height)
+
+        while (largest / 2 >= MAX_DIMENSION) {
+            largest /= 2
+            sample *= 2
+        }
+
+        return sample
     }
 
     /**
