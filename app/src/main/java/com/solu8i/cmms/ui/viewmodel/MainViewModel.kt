@@ -38,6 +38,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var workOrdersLastPage = 1
     private var workOrdersStatus: String? = null
     private var workOrdersClassification: String? = null
+    private var workOrdersInterval: String? = null
     private var workOrdersSearch: String? = null
 
     private val workOrdersPerPage = 30
@@ -50,6 +51,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _classificationFilter = MutableStateFlow("")
     val classificationFilter: StateFlow<String> = _classificationFilter
+
+    private val _intervalFilter = MutableStateFlow("")
+    val intervalFilter: StateFlow<String> = _intervalFilter
 
     private val _dateFrom = MutableStateFlow("")
     val dateFrom: StateFlow<String> = _dateFrom
@@ -71,9 +75,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun applyFilters(status: String, classification: String, dateFrom: String = "", dateTo: String = "") {
+    fun applyFilters(
+        status: String,
+        classification: String,
+        interval: String = "",
+        dateFrom: String = "",
+        dateTo: String = ""
+    ) {
         _selectedStatus.value = status
         _classificationFilter.value = classification
+        _intervalFilter.value = interval
         _dateFrom.value = dateFrom
         _dateTo.value = dateTo
         reloadWorkOrders()
@@ -85,6 +96,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun reloadWorkOrders() {
         workOrdersStatus = _selectedStatus.value.takeIf { it != "All" }
         workOrdersClassification = _classificationFilter.value.takeIf { it.isNotBlank() }
+        workOrdersInterval = _intervalFilter.value.takeIf { it.isNotBlank() }
         workOrdersSearch = _query.value.takeIf { it.isNotBlank() }
         workOrdersDateFrom = _dateFrom.value.takeIf { it.isNotBlank() }
         workOrdersDateTo = _dateTo.value.takeIf { it.isNotBlank() }
@@ -151,6 +163,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val response = RetrofitInstance.api.getWorkOrders(
                     status = workOrdersStatus,
                     classification = workOrdersClassification,
+                    interval = workOrdersInterval,
                     search = workOrdersSearch,
                     dateFrom = workOrdersDateFrom,
                     dateTo = workOrdersDateTo,
@@ -194,10 +207,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         workOrdersLastPage = 1
         workOrdersStatus = null
         workOrdersClassification = null
+        workOrdersInterval = null
         workOrdersSearch = null
         _selectedStatus.value = "All"
         _query.value = ""
         _classificationFilter.value = ""
+        _intervalFilter.value = ""
         _dateFrom.value = ""
         _dateTo.value = ""
         workOrdersDateFrom = null

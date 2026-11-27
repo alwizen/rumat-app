@@ -1,8 +1,6 @@
 package com.solu8i.cmms.ui.screen
 
 import android.Manifest
-import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -70,10 +68,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.solu8i.cmms.ui.viewmodel.MaintenanceRequestViewModel
-import java.io.File
+import com.solu8i.cmms.ui.util.ImageFiles
 
 private const val MAX_PHOTOS = 5
 
@@ -118,24 +115,27 @@ fun MaintenanceRequestCreateScreen(    viewModel: MaintenanceRequestViewModel,
         selectedPhotos = (selectedPhotos + uris).take(MAX_PHOTOS)
     }
 
+    var cameraUri by remember { mutableStateOf<Uri?>(null) }
+
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        bitmap?.let {
-            if (selectedPhotos.size < MAX_PHOTOS) {
-                val uri = bitmapToUri(context, it)
-                if (uri != null) {
-                    selectedPhotos = (selectedPhotos + uri).take(MAX_PHOTOS)
-                }
-            }
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        val uri = cameraUri
+        if (success && uri != null && selectedPhotos.size < MAX_PHOTOS) {
+            selectedPhotos = (selectedPhotos + uri).take(MAX_PHOTOS)
         }
+        cameraUri = null
     }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted: Boolean ->
         if (granted) {
-            cameraLauncher.launch(null)
+            val uri = ImageFiles.createCameraUri(context)
+            if (uri != null) {
+                cameraUri = uri
+                cameraLauncher.launch(uri)
+            }
         }
     }
 
@@ -730,17 +730,6 @@ fun MaintenanceRequestCreateScreen(    viewModel: MaintenanceRequestViewModel,
     }
 }
 
-private fun bitmapToUri(context: Context, bitmap: Bitmap): Uri? {
-    return try {
-        val file = File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
-        file.outputStream().use { out ->
-            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
-        }
-        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-    } catch (_: Exception) {
-        null
-    }
-}
 
 @Composable
 fun FilterChipSimple(

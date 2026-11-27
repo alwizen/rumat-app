@@ -127,7 +127,7 @@ fun MaintenanceRequestDetailScreen(
                         .padding(innerPadding)
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 32.dp)
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
                 ) {
                     item { DetailStatusHeader(detail!!) }
 
@@ -187,13 +187,13 @@ fun MaintenanceRequestDetailScreen(
                                     ) {
                                         photos.forEach { photo ->
                                             AsyncImage(
-                                                model = "${RetrofitInstance.getStorageUrl()}/$photo",
+                                                model = RetrofitInstance.resolveMediaUrl(photo),
                                                 contentDescription = "Foto",
                                                 modifier = Modifier
                                                     .size(100.dp)
                                                     .clip(RoundedCornerShape(8.dp))
                                                     .clickable {
-                                                        selectedPhoto = "${RetrofitInstance.getStorageUrl()}/$photo"
+                                                        selectedPhoto = RetrofitInstance.resolveMediaUrl(photo)
                                                     },
                                                 contentScale = ContentScale.Crop
                                             )

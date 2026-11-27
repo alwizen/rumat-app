@@ -11,6 +11,7 @@ object Routes {
     const val DOCUMENT = "document"
     const val DOCUMENT_DETAIL = "document/{documentId}"
     const val MAINTENANCE_REQUEST = "maintenance-request"
+    const val FINDING = "finding"
     const val MY_TAB = "my-tab"
     const val NOTIFICATION = "notification"
     const val WORK_ORDER_DETAIL = "work-order/{workOrderId}"

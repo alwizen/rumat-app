@@ -230,7 +230,7 @@ fun HousekeepingRequestDetailScreen(
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         photos.forEach { photo ->
-                                            val url = "${RetrofitInstance.getStorageUrl()}/$photo"
+                                            val url = RetrofitInstance.resolveMediaUrl(photo)
                                             AsyncImage(
                                                 model = url,
                                                 contentDescription = "Foto",

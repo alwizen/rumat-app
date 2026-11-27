@@ -1,7 +1,6 @@
 package com.solu8i.cmms.ui.screen
 
 import android.Manifest
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -119,24 +118,27 @@ fun HousekeepingRequestCreateScreen(
         selectedPhotos = (selectedPhotos + uris).take(MAX_REQUEST_PHOTOS)
     }
 
+    var cameraUri by remember { mutableStateOf<Uri?>(null) }
+
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        bitmap?.let {
-            if (selectedPhotos.size < MAX_REQUEST_PHOTOS) {
-                val uri = ImageFiles.bitmapToUri(context, it)
-                if (uri != null) {
-                    selectedPhotos = (selectedPhotos + uri).take(MAX_REQUEST_PHOTOS)
-                }
-            }
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        val uri = cameraUri
+        if (success && uri != null && selectedPhotos.size < MAX_REQUEST_PHOTOS) {
+            selectedPhotos = (selectedPhotos + uri).take(MAX_REQUEST_PHOTOS)
         }
+        cameraUri = null
     }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted: Boolean ->
         if (granted) {
-            cameraLauncher.launch(null)
+            val uri = ImageFiles.createCameraUri(context)
+            if (uri != null) {
+                cameraUri = uri
+                cameraLauncher.launch(uri)
+            }
         }
     }
 

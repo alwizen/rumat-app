@@ -66,9 +66,9 @@ fun HousekeepingReportDatePickerDialog(
 }
 
 /**
- * Buka PDF laporan harian hasil unduhan dari cache aplikasi.
+ * Buka PDF laporan hasil unduhan dari cache aplikasi.
  */
-fun openHousekeepingReportPdf(context: Context, file: File) {
+fun openPdfFile(context: Context, file: File) {
     try {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -86,6 +86,11 @@ fun openHousekeepingReportPdf(context: Context, file: File) {
         ).show()
     }
 }
+
+/**
+ * Buka PDF laporan harian housekeeping.
+ */
+fun openHousekeepingReportPdf(context: Context, file: File) = openPdfFile(context, file)
 
 /**
  * Indikator progres saat laporan harian sedang dibuat/diunduh, supaya user

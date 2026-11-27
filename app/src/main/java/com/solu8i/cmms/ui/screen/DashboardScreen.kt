@@ -314,33 +314,18 @@ fun DashboardScreen(
 
                 val todayWorkOrders = data.todayWorkOrders.orEmpty()
 
-                if (todayWorkOrders.isNotEmpty()) {
-                    item {
-                        SectionHeader(
-                            title = "Agenda Hari Ini",
-                            subtitle = "${todayWorkOrders.size} work order dijadwalkan"
-                        )
-                    }
-
-                    items(todayWorkOrders) { wo ->
-                        WorkOrderCard(
-                            wo = wo,
-                            onClick = { onWorkOrderClick(wo.id) }
-                        )
-                    }
-                }
-
                 item {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Work Order Terbaru",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF015E4E)
+                    SectionHeader(
+                        title = "Agenda Hari Ini",
+                        subtitle = if (todayWorkOrders.isNotEmpty()) {
+                            "${todayWorkOrders.size} work order dijadwalkan"
+                        } else {
+                            "Tidak ada work order dijadwalkan"
+                        }
                     )
                 }
 
-                if (data.recentWorkOrders.isEmpty()) {
+                if (todayWorkOrders.isEmpty()) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -348,7 +333,7 @@ fun DashboardScreen(
                             colors = CardDefaults.cardColors(containerColor = Color.White)
                         ) {
                             Text(
-                                text = "Belum ada work order",
+                                text = "Belum ada agenda hari ini",
                                 modifier = Modifier.padding(20.dp),
                                 color = Color(0xFF9CA3AF),
                                 fontSize = 14.sp
@@ -356,7 +341,7 @@ fun DashboardScreen(
                         }
                     }
                 } else {
-                    items(data.recentWorkOrders) { wo ->
+                    items(todayWorkOrders) { wo ->
                         WorkOrderCard(
                             wo = wo,
                             onClick = { onWorkOrderClick(wo.id) }

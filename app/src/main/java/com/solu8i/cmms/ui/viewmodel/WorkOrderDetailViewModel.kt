@@ -14,6 +14,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -34,6 +35,9 @@ class WorkOrderDetailViewModel(application: Application) : AndroidViewModel(appl
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
+
+    private val _isDownloadingReport = MutableStateFlow(false)
+    val isDownloadingReport: StateFlow<Boolean> = _isDownloadingReport
 
     fun loadDetail(id: Int) {
         viewModelScope.launch {
@@ -227,6 +231,95 @@ class WorkOrderDetailViewModel(application: Application) : AndroidViewModel(appl
         }
     }
 
+    /**
+     * Unduh laporan PDF work order (hanya untuk status Completed) lalu simpan
+     * ke cache aplikasi. File dikirim lewat callback agar UI bisa membukanya.
+     */
+    fun downloadReport(workOrderId: Int, workOrderNumber: String, onSaved: (File) -> Unit) {
+        if (_isDownloadingReport.value) {
+            return
+        }
+
+        viewModelScope.launch {
+            _isDownloadingReport.value = true
+            _errorMessage.value = null
+
+            try {
+                val response = RetrofitInstance.api.downloadWorkOrderReport(workOrderId)
+
+                if (!response.isSuccessful) {
+                    _errorMessage.value = when (response.code()) {
+                        403 -> "Anda tidak berhak mengunduh laporan ini."
+                        422 -> reportBlockedMessage(
+                            response.errorBody()?.string(),
+                            "Laporan hanya dapat dibuat untuk work order yang sudah selesai.",
+                        )
+                        else -> "Gagal mengunduh laporan (${response.code()})"
+                    }
+
+                    return@launch
+                }
+
+                val body = response.body()
+
+                if (body == null) {
+                    _errorMessage.value = "Laporan kosong."
+
+                    return@launch
+                }
+
+                val directory = File(getApplication<Application>().cacheDir, "reports").apply { mkdirs() }
+                val prefix = "laporan-wo-"
+                val safeNumber = workOrderNumber.replace(Regex("[^0-9A-Za-z-]"), "-")
+                val fileName = "$prefix$safeNumber-${System.currentTimeMillis()}.pdf"
+
+                directory.listFiles()
+                    ?.filter { it.name.startsWith("$prefix$safeNumber-") }
+                    ?.forEach { it.delete() }
+
+                val file = File(directory, fileName)
+
+                body.byteStream().use { input ->
+                    file.outputStream().use { output -> input.copyTo(output) }
+                }
+
+                if (!isPdfContent(file.readBytes())) {
+                    file.delete()
+                    _errorMessage.value = "Laporan yang diunduh tidak valid."
+
+                    return@launch
+                }
+
+                _message.value = "Laporan work order berhasil dibuat."
+                onSaved(file)
+            } catch (e: Exception) {
+                _errorMessage.value = "Tidak dapat terhubung ke server"
+            } finally {
+                _isDownloadingReport.value = false
+            }
+        }
+    }
+
+    private fun reportBlockedMessage(errorBody: String?, fallback: String): String {
+        if (errorBody.isNullOrBlank()) {
+            return fallback
+        }
+
+        val message = runCatching {
+            com.google.gson.Gson().fromJson(errorBody, Map::class.java)["message"] as? String
+        }.getOrNull()
+
+        return message?.takeIf { it.isNotBlank() } ?: fallback
+    }
+
+    private fun isPdfContent(bytes: ByteArray): Boolean {
+        if (bytes.size <= 4) {
+            return false
+        }
+
+        return String(bytes, 0, 4, Charsets.US_ASCII) == "%PDF"
+    }
+
     fun consumeMessage() {
         _message.value = null
     }
@@ -251,5 +344,6 @@ class WorkOrderDetailViewModel(application: Application) : AndroidViewModel(appl
         _detail.value = null
         _message.value = null
         _errorMessage.value = null
+        _isDownloadingReport.value = false
     }
 }

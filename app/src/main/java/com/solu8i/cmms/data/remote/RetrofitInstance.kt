@@ -96,6 +96,12 @@ object RetrofitInstance {
 
     fun getStorageUrl(): String = baseUrl.replace("/api/", "/storage/")
 
+    /**
+     * URL siap pakai untuk foto: URL absolut dari API (mis. presigned R2)
+     * dipakai apa adanya, path relatif digabung ke storage lokal.
+     */
+    fun resolveMediaUrl(path: String?): String? = MediaUrl.resolve(path, getStorageUrl())
+
     private fun buildApi(url: String): ApiService {
         return Retrofit.Builder()
             .baseUrl(url)

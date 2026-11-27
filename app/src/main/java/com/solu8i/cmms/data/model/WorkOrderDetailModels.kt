@@ -17,6 +17,9 @@ data class WorkOrderDetail(
     @SerializedName("note") val note: String?,
     @SerializedName("status") val status: String,
     @SerializedName("can_execute") val canExecute: Boolean = true,
+    @SerializedName("can_fill_checklist") val canFillChecklist: Boolean = false,
+    @SerializedName("is_locked") val isLocked: Boolean = false,
+    @SerializedName("lock_message") val lockMessage: String? = null,
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("equipment") val equipment: EquipmentDetail?,
     @SerializedName("issued_by") val issuedBy: UserBrief?,
@@ -60,7 +63,14 @@ data class WorkOrderActivityItem(
     @SerializedName("executed") val executed: Boolean?,
     @SerializedName("note") val note: String?,
     @SerializedName("photos") val photos: List<String>? = null,
+    @SerializedName("is_qualitative") val isQualitative: Boolean = false,
+    @SerializedName("result_options") val resultOptions: List<ResultOption>? = null,
     @SerializedName("activity") val activity: ActivityBrief?
+)
+
+data class ResultOption(
+    @SerializedName("value") val value: String,
+    @SerializedName("label") val label: String
 )
 
 data class ActivityBrief(

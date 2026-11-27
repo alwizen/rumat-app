@@ -35,6 +35,7 @@ import com.solu8i.cmms.ui.navigation.PENGAWAS_ROLE
 import com.solu8i.cmms.ui.screen.CalendarScreen
 import com.solu8i.cmms.ui.screen.EquipmentDetailScreen
 import com.solu8i.cmms.ui.screen.EquipmentListScreen
+import com.solu8i.cmms.ui.screen.FindingListScreen
 import com.solu8i.cmms.ui.screen.DashboardScreen
 import com.solu8i.cmms.ui.screen.DocumentDetailScreen
 import com.solu8i.cmms.ui.screen.DocumentScreen
@@ -60,6 +61,7 @@ import com.solu8i.cmms.ui.screen.WorkOrderDetailScreen
 import com.solu8i.cmms.ui.theme.CMMSTheme
 import com.solu8i.cmms.ui.viewmodel.CalendarViewModel
 import com.solu8i.cmms.ui.viewmodel.EquipmentViewModel
+import com.solu8i.cmms.ui.viewmodel.FindingViewModel
 import com.solu8i.cmms.ui.viewmodel.HousekeepingDetailViewModel
 import com.solu8i.cmms.ui.viewmodel.HousekeepingRequestViewModel
 import com.solu8i.cmms.ui.viewmodel.HousekeepingDashboardViewModel
@@ -86,6 +88,7 @@ fun AppNavigation() {
     val loginViewModel: LoginViewModel = viewModel()
     val mainViewModel: MainViewModel = viewModel()
     val maintenanceRequestViewModel: MaintenanceRequestViewModel = viewModel()
+    val findingViewModel: FindingViewModel = viewModel()
     val calendarViewModel: CalendarViewModel = viewModel()
     val equipmentViewModel: EquipmentViewModel = viewModel()
     val downtimeViewModel: DowntimeViewModel = viewModel()
@@ -146,6 +149,7 @@ fun AppNavigation() {
     val performLogout: () -> Unit = {
         mainViewModel.reset()
         maintenanceRequestViewModel.reset()
+        findingViewModel.reset()
         calendarViewModel.reset()
         equipmentViewModel.reset()
         downtimeViewModel.reset()
@@ -300,6 +304,17 @@ fun AppNavigation() {
                 )
             }
 
+            composable(Routes.FINDING) {
+                FindingListScreen(
+                    viewModel = findingViewModel,
+                    onWorkOrderClick = { id ->
+                        navController.navigate(Routes.workOrderDetail(id))
+                    },
+                    bottomPadding = innerPadding.calculateBottomPadding(),
+                    onMenuClick = openDrawer
+                )
+            }
+
             composable(Routes.MAINTENANCE_REQUEST_CREATE) {
                 MaintenanceRequestCreateScreen(
                     viewModel = maintenanceRequestViewModel,
@@ -365,6 +380,12 @@ fun AppNavigation() {
             }
 
             composable(Routes.HOUSEKEEPING_DASHBOARD) {
+                val unreadCount by notificationViewModel.unreadCount.collectAsState()
+
+                LaunchedEffect(Unit) {
+                    notificationViewModel.refreshUnreadCount()
+                }
+
                 HousekeepingDashboardScreen(
                     dashboardViewModel = housekeepingDashboardViewModel,
                     housekeepingViewModel = housekeepingViewModel,
@@ -375,6 +396,11 @@ fun AppNavigation() {
                     onOpenPlans = { navController.navigate(Routes.HOUSEKEEPING) },
                     onOpenProfile = { navController.navigate(Routes.MY_TAB) },
                     onMenuClick = openDrawer,
+                    unreadNotificationCount = unreadCount,
+                    onNotificationClick = {
+                        navController.navigate(Routes.NOTIFICATION)
+                    },
+                    onLogout = performLogout,
                     bottomPadding = innerPadding.calculateBottomPadding(),
                 )
             }

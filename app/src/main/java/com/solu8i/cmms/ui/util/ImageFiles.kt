@@ -14,8 +14,21 @@ import java.io.File
  */
 object ImageFiles {
 
-    private const val MAX_DIMENSION = 1600
-    private const val JPEG_QUALITY = 80
+    private const val MAX_DIMENSION = 1920
+    private const val JPEG_QUALITY = 88
+
+    /**
+     * Buat Uri file tujuan kamera resolusi penuh (bukan thumbnail).
+     * Kamera menulis langsung ke file ini saat memakai TakePicture().
+     */
+    fun createCameraUri(context: Context): Uri? {
+        return try {
+            val file = File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     /**
      * Salin gambar dari Uri menjadi File JPEG terkompresi di cache.
@@ -82,20 +95,6 @@ object ImageFiles {
         return sample
     }
 
-    /**
-     * Ubah bitmap hasil kamera menjadi Uri yang bisa dibaca ulang.
-     */
-    fun bitmapToUri(context: Context, bitmap: Bitmap): Uri? {
-        return try {
-            val file = File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
-            file.outputStream().use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-            }
-            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        } catch (_: Exception) {
-            null
-        }
-    }
 
     private fun scaleDown(bitmap: Bitmap): Bitmap {
         val largest = maxOf(bitmap.width, bitmap.height)

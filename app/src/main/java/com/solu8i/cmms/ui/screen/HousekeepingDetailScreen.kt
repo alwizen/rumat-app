@@ -1,7 +1,6 @@
 package com.solu8i.cmms.ui.screen
 
 import android.Manifest
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -765,7 +764,7 @@ private fun PhotoSection(
     var previewPath by remember { mutableStateOf<String?>(null) }
 
     previewPath?.let { path ->
-        val model = if (path.startsWith("http")) path else "${RetrofitInstance.getStorageUrl()}/$path"
+        val model = RetrofitInstance.resolveMediaUrl(path)
         AlertDialog(
             onDismissRequest = { previewPath = null },
             confirmButton = {
@@ -809,7 +808,7 @@ private fun PhotoSection(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 photos.forEach { path ->
-                    val model = if (path.startsWith("http")) path else "${RetrofitInstance.getStorageUrl()}/$path"
+                    val model = RetrofitInstance.resolveMediaUrl(path)
                     AsyncImage(
                         model = model,
                         contentDescription = label,
@@ -850,18 +849,28 @@ private fun PhotoUploadDialog(
         }
     }
 
+    var cameraUri by remember { mutableStateOf<Uri?>(null) }
+
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        bitmap?.let {
-            ImageFiles.bitmapToUri(context, it)?.let { uri -> newPhotos = newPhotos + uri }
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        val uri = cameraUri
+        if (success && uri != null) {
+            newPhotos = newPhotos + uri
         }
+        cameraUri = null
     }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted: Boolean ->
-        if (granted) cameraLauncher.launch(null)
+        if (granted) {
+            val uri = ImageFiles.createCameraUri(context)
+            if (uri != null) {
+                cameraUri = uri
+                cameraLauncher.launch(uri)
+            }
+        }
     }
 
     if (showSource) {
@@ -901,7 +910,7 @@ private fun PhotoUploadDialog(
     }
 
     previewPath?.let { path ->
-        val model = if (path.startsWith("http")) path else "${RetrofitInstance.getStorageUrl()}/$path"
+        val model = RetrofitInstance.resolveMediaUrl(path)
         AlertDialog(
             onDismissRequest = { previewPath = null },
             confirmButton = {
@@ -935,7 +944,7 @@ private fun PhotoUploadDialog(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         existingPhotos.forEach { path ->
-                            val model = if (path.startsWith("http")) path else "${RetrofitInstance.getStorageUrl()}/$path"
+                            val model = RetrofitInstance.resolveMediaUrl(path)
                             Box {
                                 AsyncImage(
                                     model = model,

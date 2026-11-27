@@ -8,23 +8,30 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,6 +39,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,8 +59,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.solu8i.cmms.data.model.HousekeepingActivePlan
 import com.solu8i.cmms.data.model.HousekeepingDashboardStats
 import com.solu8i.cmms.ui.util.HousekeepingProgress
@@ -81,6 +91,9 @@ fun HousekeepingDashboardScreen(
     onOpenPlans: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
     onMenuClick: () -> Unit = {},
+    unreadNotificationCount: Int = 0,
+    onNotificationClick: () -> Unit = {},
+    onLogout: () -> Unit = {},
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
     val data by dashboardViewModel.data.collectAsState()
@@ -92,6 +105,7 @@ fun HousekeepingDashboardScreen(
 
     val context = LocalContext.current
     var showReportDatePicker by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     // Selalu muat ulang saat layar ini dibuka kembali (mis. kembali dari detail
     // setelah checklist diselesaikan) agar progres & statistik tidak tertinggal.
@@ -141,6 +155,70 @@ fun HousekeepingDashboardScreen(
         )
     }
 
+    if (showLogoutDialog) {
+        Dialog(onDismissRequest = { showLogoutDialog = false }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = null,
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Keluar Akun",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1F2937)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Apakah Anda yakin ingin keluar dari aplikasi ini?",
+                        fontSize = 13.sp,
+                        color = Color(0xFF6B7280),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showLogoutDialog = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Batal", fontSize = 13.sp, color = Color(0xFF6B7280))
+                        }
+                        Button(
+                            onClick = {
+                                showLogoutDialog = false
+                                onLogout()
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                        ) {
+                            Text("Keluar", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -149,24 +227,50 @@ fun HousekeepingDashboardScreen(
                         Icon(Icons.Default.Menu, contentDescription = "Buka menu", tint = Color.White)
                     }
                 },
-                title = { Text("Housekeeping", fontWeight = FontWeight.Bold) },
+                title = { Text("Dashboard", fontWeight = FontWeight.Bold) },
                 actions = {
-                    if (isDownloadingReport) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .size(20.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        IconButton(onClick = { showReportDatePicker = true }) {
+                    Box(
+                        modifier = Modifier.padding(end = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        IconButton(onClick = onNotificationClick) {
                             Icon(
-                                Icons.Default.Description,
-                                contentDescription = "Generate laporan harian",
-                                tint = Color.White,
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Notifikasi",
+                                tint = Color.White
                             )
                         }
+
+                        if (unreadNotificationCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 2.dp, y = 4.dp)
+                                    .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                                    .background(Color(0xFFDC2626), CircleShape)
+                                    .padding(horizontal = 5.dp, vertical = 2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString(),
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    lineHeight = 12.sp
+                                )
+                            }
+                        }
+                    }
+
+                    IconButton(
+                        onClick = { showLogoutDialog = true },
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Logout",
+                            tint = Color.White
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

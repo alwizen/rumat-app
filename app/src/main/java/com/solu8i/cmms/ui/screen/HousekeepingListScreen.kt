@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -41,19 +41,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.solu8i.cmms.data.model.HousekeepingPlanItem
 import com.solu8i.cmms.ui.util.HousekeepingProgress
-import com.solu8i.cmms.ui.util.HousekeepingReportDatePickerDialog
-import com.solu8i.cmms.ui.util.HousekeepingReportProgressDialog
-import com.solu8i.cmms.ui.util.HousekeepingReportResultDialog
-import com.solu8i.cmms.ui.util.openHousekeepingReportPdf
 import com.solu8i.cmms.ui.viewmodel.HousekeepingViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,18 +62,84 @@ fun HousekeepingListScreen(
 ) {
     val plans by viewModel.plans.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMore by viewModel.hasMorePlans.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    val isDownloadingReport by viewModel.isDownloadingReport.collectAsState()
-    val reportError by viewModel.reportError.collectAsState()
-    val reportMessage by viewModel.reportMessage.collectAsState()
 
-    val context = LocalContext.current
-    var showReportDatePicker by remember { mutableStateOf(false) }
+    val selectedStatus by viewModel.selectedStatus.collectAsState()
+    val selectedAreaId by viewModel.selectedAreaId.collectAsState()
+    val query by viewModel.query.collectAsState()
+    val dateFrom by viewModel.dateFrom.collectAsState()
+    val dateTo by viewModel.dateTo.collectAsState()
+    val areas by viewModel.areas.collectAsState()
+
+    val listState = rememberLazyListState()
+    var showFilterSheet by remember { mutableStateOf(false) }
+
+    val hasActiveFilter = selectedStatus != "All" || selectedAreaId != null ||
+        dateFrom.isNotBlank() || dateTo.isNotBlank()
+
+    val filterGroups = remember(areas) {
+        listOf(
+            FilterGroup(
+                "Status",
+                listOf(
+                    FilterOption("All", "Semua"),
+                    FilterOption("Draft", "Draft"),
+                    FilterOption("In Progress", "In Progress"),
+                    FilterOption("Completed", "Completed"),
+                )
+            ),
+            FilterGroup(
+                "Area",
+                listOf(FilterOption("", "Semua")) +
+                    areas.map { FilterOption(it.id.toString(), it.name) }
+            ),
+        )
+    }
 
     // Selalu ambil ulang saat layar ini dibuka kembali (mis. kembali dari detail
     // setelah checklist diselesaikan) agar status & progres plan tidak tertinggal.
     LaunchedEffect(Unit) {
+        viewModel.loadAreas()
         viewModel.refresh()
+    }
+
+    // Infinite scroll: muat halaman berikutnya saat mendekati bawah.
+    LaunchedEffect(listState, hasMore) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            (info.visibleItemsInfo.lastOrNull()?.index ?: 0) to info.totalItemsCount
+        }.collect { (lastVisible, total) ->
+            if (hasMore && total > 0 && lastVisible >= total - 3) {
+                viewModel.loadMorePlans()
+            }
+        }
+    }
+
+    if (showFilterSheet) {
+        FilterBottomSheet(
+            title = "Filter Housekeeping",
+            groups = filterGroups,
+            current = mapOf(
+                "Status" to selectedStatus,
+                "Area" to (selectedAreaId?.toString() ?: ""),
+            ),
+            onDismiss = { showFilterSheet = false },
+            onApply = {},
+            showDateRange = true,
+            dateFrom = dateFrom,
+            dateTo = dateTo,
+            onApplyWithRange = { values, from, to ->
+                viewModel.applyFilters(
+                    status = values["Status"] ?: "All",
+                    areaId = values["Area"]?.takeIf { it.isNotBlank() }?.toIntOrNull(),
+                    dateFrom = from,
+                    dateTo = to,
+                )
+                showFilterSheet = false
+            }
+        )
     }
 
     errorMessage?.let { text ->
@@ -93,35 +155,6 @@ fun HousekeepingListScreen(
         )
     }
 
-    // Progress generate laporan: user tahu aplikasi sedang bekerja.
-    if (isDownloadingReport) {
-        HousekeepingReportProgressDialog()
-    }
-
-    // Hasil generate laporan (sukses/gagal) disampaikan ke user.
-    (reportError ?: reportMessage)?.let { text ->
-        HousekeepingReportResultDialog(
-            message = text,
-            isError = reportError != null,
-            onDismiss = {
-                viewModel.consumeReportError()
-                viewModel.consumeReportMessage()
-            },
-        )
-    }
-
-    if (showReportDatePicker) {
-        HousekeepingReportDatePickerDialog(
-            onDismiss = { showReportDatePicker = false },
-            onDateSelected = { date ->
-                showReportDatePicker = false
-                viewModel.downloadDailyReport(date) { file ->
-                    openHousekeepingReportPdf(context, file)
-                }
-            },
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -131,25 +164,6 @@ fun HousekeepingListScreen(
                     }
                 },
                 title = { Text("Housekeeping", fontWeight = FontWeight.Bold) },
-                actions = {
-                    if (isDownloadingReport) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .size(20.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        IconButton(onClick = { showReportDatePicker = true }) {
-                            Icon(
-                                Icons.Default.Description,
-                                contentDescription = "Generate laporan harian",
-                                tint = Color.White,
-                            )
-                        }
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF015E4E),
                     titleContentColor = Color.White
@@ -163,6 +177,14 @@ fun HousekeepingListScreen(
                 .background(Color(0xFFF5F6FA))
                 .padding(innerPadding)
         ) {
+            SearchFilterBar(
+                query = query,
+                onQueryChange = viewModel::onQueryChanged,
+                hasActiveFilter = hasActiveFilter,
+                onClickFilter = { showFilterSheet = true },
+                placeholder = "Cari nomor plan, area..."
+            )
+
             when {
                 isLoading && plans.isEmpty() -> Box(
                     modifier = Modifier.fillMaxSize(),
@@ -195,6 +217,7 @@ fun HousekeepingListScreen(
                 }
 
                 else -> LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = 16.dp,
@@ -206,6 +229,38 @@ fun HousekeepingListScreen(
                 ) {
                     items(plans, key = { it.id }) { plan ->
                         HousekeepingPlanCard(plan = plan, onClick = { onPlanClick(plan.id) })
+                    }
+
+                    if (isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color(0xFF015E4E)
+                                )
+                            }
+                        }
+                    } else if (!hasMore && plans.isNotEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Semua plan sudah dimuat",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF9CA3AF)
+                                )
+                            }
+                        }
                     }
                 }
             }

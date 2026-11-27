@@ -1,7 +1,6 @@
 package com.solu8i.cmms.ui.screen
 
 import android.Manifest
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -14,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.solu8i.cmms.data.remote.RetrofitInstance
 import com.solu8i.cmms.ui.util.ImageFiles
+import com.solu8i.cmms.ui.util.openPdfFile
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -41,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.PlayCircle
@@ -50,12 +51,16 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
@@ -75,6 +80,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.solu8i.cmms.data.model.ResultOption
 import com.solu8i.cmms.data.model.WorkOrderActivityItem
 import com.solu8i.cmms.data.model.WorkOrderDetail
 import com.solu8i.cmms.ui.viewmodel.WorkOrderDetailViewModel
@@ -92,6 +98,9 @@ fun WorkOrderDetailScreen(
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val message by viewModel.message.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val isDownloadingReport by viewModel.isDownloadingReport.collectAsState()
+
+    val context = LocalContext.current
 
     var editingActivity by remember { mutableStateOf<WorkOrderActivityItem?>(null) }
     var confirmStatus by remember { mutableStateOf<String?>(null) }
@@ -104,6 +113,7 @@ fun WorkOrderDetailScreen(
         ActivityResultScreen(
             activity = activity,
             isSubmitting = isSubmitting,
+            readOnly = detail?.canFillChecklist == false,
             onDismiss = { editingActivity = null },
             onSave = { pre, final, follow, executed, note, newPhotos ->
                 viewModel.saveActivity(
@@ -171,6 +181,29 @@ fun WorkOrderDetailScreen(
         )
     }
 
+    if (isDownloadingReport) {
+        AlertDialog(
+            onDismissRequest = { /* tidak bisa ditutup saat proses berjalan */ },
+            title = { Text("Membuat laporan", fontWeight = FontWeight.SemiBold) },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color(0xFF015E4E),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Mohon tunggu, laporan work order sedang diproses...",
+                        fontSize = 13.sp,
+                        color = Color(0xFF374151)
+                    )
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF5F6FA))) {
         TopAppBar(
             title = {
@@ -212,6 +245,12 @@ fun WorkOrderDetailScreen(
                 }
             }
             else -> {
+                val wo = detail!!
+                val isCompleted = wo.status == "Completed"
+                val isCancelled = wo.status == "Cancelled"
+                val isClosed = isCompleted || isCancelled
+                val canFillChecklist = wo.canFillChecklist
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
@@ -224,28 +263,56 @@ fun WorkOrderDetailScreen(
                 ) {
                     item { StatusHeader(detail!!) }
 
-                    if (!detail!!.canExecute) {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED))
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Text(
-                                        text = "Belum dapat dikerjakan",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFFB45309)
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Checklist baru bisa diisi pada tanggal " +
-                                            (detail!!.startAt?.take(10) ?: "-") + ".",
-                                        fontSize = 12.sp,
-                                        color = Color(0xFF92400E)
-                                    )
-                                }
+                    when {
+                        isCompleted -> {
+                            item {
+                                NoticeCard(
+                                    title = "Work order sudah selesai",
+                                    message = "Hasil pekerjaan menunggu review SPV MOS. " +
+                                        "Checklist hanya dapat dilihat.",
+                                    containerColor = Color(0xFFF0FDF4),
+                                    titleColor = Color(0xFF16A34A),
+                                    messageColor = Color(0xFF166534)
+                                )
+                            }
+                        }
+                        isCancelled -> {
+                            item {
+                                NoticeCard(
+                                    title = "Work order dibatalkan",
+                                    message = "Checklist hanya dapat dilihat.",
+                                    containerColor = Color(0xFFFEF2F2),
+                                    titleColor = Color(0xFFDC2626),
+                                    messageColor = Color(0xFF991B1B)
+                                )
+                            }
+                        }
+                        !wo.canExecute -> {
+                            item {
+                                NoticeCard(
+                                    title = "Belum dapat dikerjakan",
+                                    message = if (wo.isLocked && wo.lockMessage != null) {
+                                        wo.lockMessage
+                                    } else {
+                                        "Checklist baru bisa diisi pada tanggal " +
+                                            (wo.startAt?.take(10) ?: "-") + "."
+                                    },
+                                    containerColor = Color(0xFFFFF7ED),
+                                    titleColor = Color(0xFFB45309),
+                                    messageColor = Color(0xFF92400E)
+                                )
+                            }
+                        }
+                        !canFillChecklist -> {
+                            item {
+                                NoticeCard(
+                                    title = "Pekerjaan belum dimulai",
+                                    message = "Tekan \"Mulai Pekerjaan\" terlebih dahulu " +
+                                        "sebelum mengisi checklist.",
+                                    containerColor = Color(0xFFEFF6FF),
+                                    titleColor = Color(0xFF2563EB),
+                                    messageColor = Color(0xFF1E40AF)
+                                )
                             }
                         }
                     }
@@ -255,7 +322,17 @@ fun WorkOrderDetailScreen(
                             status = detail!!.status,
                             isSubmitting = isSubmitting,
                             enabled = detail!!.canExecute,
-                            onChangeStatus = { confirmStatus = it }
+                            isDownloadingReport = isDownloadingReport,
+                            pendingChecklistCount = detail!!.activities
+                                .orEmpty()
+                                .count { it.executed != true },
+                            onChangeStatus = { confirmStatus = it },
+                            onGenerateReport = {
+                                viewModel.downloadReport(
+                                    workOrderId = workOrderId,
+                                    workOrderNumber = detail!!.workOrderNumber
+                                ) { file -> openPdfFile(context, file) }
+                            }
                         )
                     }
 
@@ -329,7 +406,8 @@ fun WorkOrderDetailScreen(
                                 items(pending) { act ->
                                     ActivityChecklistCard(
                                         act = act,
-                                        enabled = detail!!.canExecute,
+                                        enabled = canFillChecklist || isClosed,
+                                        readOnly = !canFillChecklist,
                                         onClick = { editingActivity = act }
                                     )
                                 }
@@ -349,7 +427,8 @@ fun WorkOrderDetailScreen(
                                 items(done) { act ->
                                     ActivityChecklistCard(
                                         act = act,
-                                        enabled = detail!!.canExecute,
+                                        enabled = canFillChecklist || isClosed,
+                                        readOnly = !canFillChecklist,
                                         onClick = { editingActivity = act }
                                     )
                                 }
@@ -415,6 +494,36 @@ fun StatusHeader(wo: WorkOrderDetail) {
 }
 
 @Composable
+fun NoticeCard(
+    title: String,
+    message: String,
+    containerColor: Color,
+    titleColor: Color,
+    messageColor: Color
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = titleColor
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = message,
+                fontSize = 12.sp,
+                color = messageColor
+            )
+        }
+    }
+}
+
+@Composable
 fun InfoCard(
     title: String,
     content: @Composable () -> Unit
@@ -446,6 +555,7 @@ fun InfoCard(
 fun ActivityChecklistCard(
     act: com.solu8i.cmms.data.model.WorkOrderActivityItem,
     enabled: Boolean = true,
+    readOnly: Boolean = false,
     onClick: () -> Unit
 ) {
     val executed = act.executed == true
@@ -511,6 +621,8 @@ fun ActivityChecklistCard(
                 Text(
                     text = when {
                         !enabled -> "Belum dapat diisi"
+                        readOnly && executed -> "Lihat Hasil"
+                        readOnly -> "Lihat Checklist"
                         executed -> "Edit Hasil"
                         else -> "Isi Hasil Inspeksi"
                     },
@@ -551,8 +663,12 @@ fun WorkOrderActions(
     status: String,
     isSubmitting: Boolean,
     enabled: Boolean = true,
-    onChangeStatus: (String) -> Unit
+    isDownloadingReport: Boolean = false,
+    pendingChecklistCount: Int = 0,
+    onChangeStatus: (String) -> Unit,
+    onGenerateReport: () -> Unit = {}
 ) {
+    val hasPendingChecklist = pendingChecklistCount > 0
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -590,7 +706,7 @@ fun WorkOrderActions(
                     Button(
                         onClick = { onChangeStatus("Completed") },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSubmitting && enabled,
+                        enabled = !isSubmitting && enabled && !hasPendingChecklist,
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                     ) {
@@ -599,35 +715,42 @@ fun WorkOrderActions(
                         Text("Tandai Selesai")
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedButton(
-                        onClick = { onChangeStatus("On Hold") },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSubmitting && enabled,
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Tunda Pekerjaan", color = Color(0xFFD97706))
+                    if (hasPendingChecklist) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Lengkapi $pendingChecklistCount checklist yang belum diisi " +
+                                "sebelum menandai selesai.",
+                            fontSize = 11.sp,
+                            color = Color(0xFFD97706)
+                        )
                     }
                 }
 
-                "On Hold" -> Button(
-                    onClick = { onChangeStatus("In Progress") },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSubmitting && enabled,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
-                ) {
-                    Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Lanjutkan Pekerjaan")
-                }
+                "Completed" -> Column {
+                    Text(
+                        text = "Work order sudah selesai. Data hasil eksekusi dapat dilihat di bawah.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF16A34A)
+                    )
 
-                "Completed" -> Text(
-                    text = "Work order sudah selesai. Data hasil eksekusi dapat dilihat di bawah.",
-                    fontSize = 12.sp,
-                    color = Color(0xFF16A34A)
-                )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = onGenerateReport,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isDownloadingReport,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF015E4E))
+                    ) {
+                        Icon(
+                            Icons.Default.Description,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (isDownloadingReport) "Membuat laporan..." else "Generate Laporan")
+                    }
+                }
 
                 else -> Text(
                     text = "Work order berstatus $status dan tidak dapat dieksekusi.",
@@ -652,6 +775,7 @@ fun WorkOrderActions(
 fun ActivityResultScreen(
     activity: WorkOrderActivityItem,
     isSubmitting: Boolean,
+    readOnly: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (String?, String?, String?, Boolean, String?, List<Uri>) -> Unit,
     onDeletePhoto: (String) -> Unit = {}
@@ -678,21 +802,27 @@ fun ActivityResultScreen(
         }
     }
 
+    var cameraUri by remember(activity.id) { mutableStateOf<Uri?>(null) }
+
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        bitmap?.let {
-            ImageFiles.bitmapToUri(context, it)?.let { uri ->
-                newPhotos = newPhotos + uri
-            }
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        val uri = cameraUri
+        if (success && uri != null) {
+            newPhotos = newPhotos + uri
         }
+        cameraUri = null
     }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted: Boolean ->
         if (granted) {
-            cameraLauncher.launch(null)
+            val uri = ImageFiles.createCameraUri(context)
+            if (uri != null) {
+                cameraUri = uri
+                cameraLauncher.launch(uri)
+            }
         }
     }
 
@@ -735,7 +865,7 @@ fun ActivityResultScreen(
     }
 
     previewPath?.let { path ->
-        val model = if (path.startsWith("http")) path else "${RetrofitInstance.getStorageUrl()}/$path"
+        val model = RetrofitInstance.resolveMediaUrl(path)
 
         AlertDialog(
             onDismissRequest = { previewPath = null },
@@ -789,35 +919,45 @@ fun ActivityResultScreen(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedButton(
-                    onClick = onDismiss,
-                    enabled = !isSubmitting,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Batal", fontSize = 14.sp)
-                }
-                Button(
-                    onClick = {
-                        onSave(
-                            preInspection.takeIf { it.isNotBlank() },
-                            finalResult.takeIf { it.isNotBlank() },
-                            null,
-                            executed,
-                            note.takeIf { it.isNotBlank() },
-                            newPhotos
+                if (readOnly) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Tutup", fontSize = 14.sp)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Batal", fontSize = 14.sp)
+                    }
+                    Button(
+                        onClick = {
+                            onSave(
+                                preInspection.takeIf { it.isNotBlank() },
+                                finalResult.takeIf { it.isNotBlank() },
+                                null,
+                                executed,
+                                note.takeIf { it.isNotBlank() },
+                                newPhotos
+                            )
+                        },
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF015E4E))
+                    ) {
+                        Text(
+                            if (isSubmitting) "Menyimpan..." else "Simpan",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
-                    },
-                    enabled = !isSubmitting,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF015E4E))
-                ) {
-                    Text(
-                        if (isSubmitting) "Menyimpan..." else "Simpan",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    }
                 }
             }
         }
@@ -849,29 +989,52 @@ fun ActivityResultScreen(
                     )
                 }
 
-                OutlinedTextField(
-                    value = preInspection,
-                    onValueChange = { if (it.length <= 100) preInspection = it },
-                    label = { Text("Pre Inspection") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                if (activity.isQualitative) {
+                    val options = activity.resultOptions.orEmpty()
 
-                OutlinedTextField(
-                    value = finalResult,
-                    onValueChange = { if (it.length <= 100) finalResult = it },
-                    label = {
-                        Text(
-                            activity.activity?.unit?.let { "Final Result ($it)" } ?: "Final Result"
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                    QualitativeDropdownField(
+                        value = preInspection,
+                        options = options,
+                        label = "Pre Inspection",
+                        readOnly = readOnly,
+                        onSelect = { preInspection = it }
+                    )
+
+                    QualitativeDropdownField(
+                        value = finalResult,
+                        options = options,
+                        label = "Final Result",
+                        readOnly = readOnly,
+                        onSelect = { finalResult = it }
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = preInspection,
+                        onValueChange = { if (it.length <= 100) preInspection = it },
+                        readOnly = readOnly,
+                        label = { Text("Pre Inspection") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = finalResult,
+                        onValueChange = { if (it.length <= 100) finalResult = it },
+                        readOnly = readOnly,
+                        label = {
+                            Text(
+                                activity.activity?.unit?.let { "Final Result ($it)" } ?: "Final Result"
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
 
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
+                    readOnly = readOnly,
                     label = { Text("Catatan") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
@@ -881,16 +1044,31 @@ fun ActivityResultScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Switch(
-                        checked = executed,
-                        onCheckedChange = { executed = it }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Tandai sudah dieksekusi",
-                        fontSize = 12.sp,
-                        color = Color(0xFF374151)
-                    )
+                    if (readOnly) {
+                        Icon(
+                            imageVector = if (executed) Icons.Default.CheckCircle else Icons.Default.HourglassEmpty,
+                            contentDescription = null,
+                            tint = if (executed) Color(0xFF16A34A) else Color(0xFFD97706),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (executed) "Sudah dieksekusi" else "Belum dieksekusi",
+                            fontSize = 12.sp,
+                            color = Color(0xFF374151)
+                        )
+                    } else {
+                        Switch(
+                            checked = executed,
+                            onCheckedChange = { executed = it }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Tandai sudah dieksekusi",
+                            fontSize = 12.sp,
+                            color = Color(0xFF374151)
+                        )
+                    }
                 }
 
                 HorizontalDivider(color = Color(0xFFF3F4F6))
@@ -913,9 +1091,9 @@ fun ActivityResultScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     existingPhotos.forEach { path ->
                         PhotoThumbnail(
-                            model = "${RetrofitInstance.getStorageUrl()}/$path",
+                            model = RetrofitInstance.resolveMediaUrl(path),
                             onPreview = { previewPath = path },
-                            onRemove = { onDeletePhoto(path) }
+                            onRemove = if (readOnly) null else ({ onDeletePhoto(path) })
                         )
                     }
 
@@ -925,14 +1103,14 @@ fun ActivityResultScreen(
                             onPreview = {
                                 previewPath = uri.toString()
                             },
-                            onRemove = {
+                            onRemove = if (readOnly) null else ({
                                 newPhotos = newPhotos.filterIndexed { i, _ -> i != index }
-                            }
+                            })
                         )
                     }
                 }
 
-                if (remainingSlots > 0) {
+                if (remainingSlots > 0 && !readOnly) {
                     OutlinedButton(
                         onClick = { showSourceDialog = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -947,11 +1125,58 @@ fun ActivityResultScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun QualitativeDropdownField(
+    value: String,
+    options: List<ResultOption>,
+    label: String,
+    readOnly: Boolean,
+    onSelect: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.firstOrNull { it.value == value }?.label ?: value
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (!readOnly) expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            enabled = !readOnly,
+            label = { Text(label) },
+            placeholder = { Text("Pilih hasil") },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = {
+                        onSelect(option.value)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun PhotoThumbnail(
     model: Any?,
     onPreview: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: (() -> Unit)? = null
 ) {
     Box(modifier = Modifier.size(72.dp)) {
         AsyncImage(
@@ -964,20 +1189,22 @@ fun PhotoThumbnail(
             contentScale = ContentScale.Crop
         )
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .size(20.dp)
-                .background(Color(0xFFDC2626), CircleShape)
-                .clickable(onClick = onRemove),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = "Hapus foto",
-                tint = Color.White,
-                modifier = Modifier.size(13.dp)
-            )
+        if (onRemove != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(20.dp)
+                    .background(Color(0xFFDC2626), CircleShape)
+                    .clickable(onClick = onRemove),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Hapus foto",
+                    tint = Color.White,
+                    modifier = Modifier.size(13.dp)
+                )
+            }
         }
     }
 }

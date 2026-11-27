@@ -62,13 +62,14 @@ fun HistoryScreen(
     val selectedStatus by viewModel.selectedStatus.collectAsState()
     val query by viewModel.query.collectAsState()
     val classificationFilter by viewModel.classificationFilter.collectAsState()
+    val intervalFilter by viewModel.intervalFilter.collectAsState()
     val dateFrom by viewModel.dateFrom.collectAsState()
     val dateTo by viewModel.dateTo.collectAsState()
     val listState = rememberLazyListState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
     val hasActiveFilter = selectedStatus != "All" || classificationFilter.isNotBlank() ||
-        dateFrom.isNotBlank() || dateTo.isNotBlank()
+        intervalFilter.isNotBlank() || dateFrom.isNotBlank() || dateTo.isNotBlank()
 
     val filterGroups = remember {
         listOf(
@@ -91,6 +92,18 @@ fun HistoryScreen(
                     FilterOption("Corrective", "Corrective"),
                 )
             ),
+            FilterGroup(
+                "Interval",
+                listOf(
+                    FilterOption("", "Semua"),
+                    FilterOption("daily", "Daily"),
+                    FilterOption("weekly", "Weekly"),
+                    FilterOption("monthly", "Monthly"),
+                    FilterOption("quarterly", "Quarterly"),
+                    FilterOption("semi_annual", "Semi-Annual"),
+                    FilterOption("yearly", "Yearly"),
+                )
+            ),
         )
     }
 
@@ -102,7 +115,11 @@ fun HistoryScreen(
         FilterBottomSheet(
             title = "Filter Work Order",
             groups = filterGroups,
-            current = mapOf("Status" to selectedStatus, "Klasifikasi" to classificationFilter),
+            current = mapOf(
+                "Status" to selectedStatus,
+                "Klasifikasi" to classificationFilter,
+                "Interval" to intervalFilter,
+            ),
             onDismiss = { showFilterSheet = false },
             onApply = {},
             showDateRange = true,
@@ -112,6 +129,7 @@ fun HistoryScreen(
                 viewModel.applyFilters(
                     status = values["Status"] ?: "All",
                     classification = values["Klasifikasi"] ?: "",
+                    interval = values["Interval"] ?: "",
                     dateFrom = from,
                     dateTo = to,
                 )

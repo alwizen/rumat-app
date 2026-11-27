@@ -8,6 +8,8 @@ import com.solu8i.cmms.data.model.DashboardResponse
 import com.solu8i.cmms.data.model.EquipmentDetailResponse
 import com.solu8i.cmms.data.model.EquipmentFilterOptionsResponse
 import com.solu8i.cmms.data.model.EquipmentListResponse
+import com.solu8i.cmms.data.model.FindingDetailResponse
+import com.solu8i.cmms.data.model.FindingListResponse
 import com.solu8i.cmms.data.model.MaintenanceHistoryListResponse
 import com.solu8i.cmms.data.model.HousekeepingAreaListResponse
 import com.solu8i.cmms.data.model.HousekeepingDashboardResponse
@@ -68,6 +70,7 @@ interface ApiService {
     suspend fun getWorkOrders(
         @Query("status") status: String? = null,
         @Query("classification") classification: String? = null,
+        @Query("interval") interval: String? = null,
         @Query("search") search: String? = null,
         @Query("date_from") dateFrom: String? = null,
         @Query("date_to") dateTo: String? = null,
@@ -79,6 +82,15 @@ interface ApiService {
     suspend fun getWorkOrderDetail(
         @Path("id") id: Int
     ): Response<WorkOrderDetailResponse>
+
+    /**
+     * Unduh laporan PDF satu work order. Hanya tersedia bila status Completed.
+     */
+    @Streaming
+    @GET("work-orders/{id}/report")
+    suspend fun downloadWorkOrderReport(
+        @Path("id") id: Int,
+    ): Response<ResponseBody>
 
     @PUT("work-orders/{id}")
     suspend fun updateWorkOrder(
@@ -237,6 +249,7 @@ interface ApiService {
         @Query("area_id") areaId: Int? = null,
         @Query("date_from") dateFrom: String? = null,
         @Query("date_to") dateTo: String? = null,
+        @Query("search") search: String? = null,
         @Query("per_page") perPage: Int = 15,
         @Query("page") page: Int = 1
     ): Response<HousekeepingPlanListResponse>
@@ -329,4 +342,33 @@ interface ApiService {
     suspend fun deleteHousekeepingRequest(
         @Path("id") id: Int
     ): Response<HousekeepingRequestActionResponse>
+
+    /**
+     * Temuan hasil checklist work order (Poor/Not Working atau di luar batas).
+     */
+    @GET("findings")
+    suspend fun getFindings(
+        @Query("status") status: String? = null,
+        @Query("severity") severity: String? = null,
+        @Query("answer_type") answerType: String? = null,
+        @Query("work_order_id") workOrderId: Int? = null,
+        @Query("date_from") dateFrom: String? = null,
+        @Query("date_to") dateTo: String? = null,
+        @Query("search") search: String? = null,
+        @Query("per_page") perPage: Int = 15,
+        @Query("page") page: Int = 1
+    ): Response<FindingListResponse>
+
+    @GET("findings/{id}")
+    suspend fun getFindingDetail(
+        @Path("id") id: Int
+    ): Response<FindingDetailResponse>
+
+    /**
+     * Ajukan maintenance request perbaikan dari sebuah temuan.
+     */
+    @POST("findings/{id}/request")
+    suspend fun submitFindingRequest(
+        @Path("id") id: Int
+    ): Response<FindingDetailResponse>
 }
